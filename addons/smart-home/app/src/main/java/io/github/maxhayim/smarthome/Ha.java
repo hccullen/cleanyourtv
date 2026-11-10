@@ -362,6 +362,39 @@ final class Ha {
         return call("climate", "set_temperature", e.id, "\"temperature\":" + number(target));
     }
 
+    /**
+     * The one call a mapped remote button's quick action makes: a scene or script turns on, an automation
+     * triggers, a light, switch, fan or input boolean toggles. Null when the id is none of those.
+     */
+    static Call quick(String id) {
+        if (id == null || id.isEmpty()) return null;
+        String domain = id.contains(".") ? id.substring(0, id.indexOf('.')) : "";
+        switch (domain) {
+            case "scene": return call("scene", "turn_on", id, null);
+            case "script": return call("script", "turn_on", id, null);
+            case "automation": return call("automation", "trigger", id, null);
+            case "light": case "switch": case "fan": case "input_boolean":
+                return call("homeassistant", "toggle", id, null);
+            default:
+                return null;
+        }
+    }
+
+    /** 0-9 for the remote's number keys, -1 for anything else: Android's KEYCODE_0 to KEYCODE_9 (7-16) and
+     *  KEYCODE_NUMPAD_0 to KEYCODE_NUMPAD_9 (144-153). Kept here, Android-free, so the JVM tests cover it. */
+    static int digit(int keyCode) {
+        if (keyCode >= 7 && keyCode <= 16) return keyCode - 7;
+        if (keyCode >= 144 && keyCode <= 153) return keyCode - 144;
+        return -1;
+    }
+
+    /** True when a quick value is a URI for the TV to open (a YouTube video to play, say) rather than an
+     *  entity to run on Home Assistant. */
+    static boolean isUriTarget(String value) {
+        if (value == null) return false;
+        return value.startsWith("http://") || value.startsWith("https://") || value.startsWith("vnd.youtube:");
+    }
+
     private static Call call(String domain, String service, String entity, String extra) {
         String body = "{\"entity_id\":" + JSONObject.quote(entity) + (extra == null ? "" : "," + extra) + "}";
         return new Call("/api/services/" + domain + "/" + service, body);

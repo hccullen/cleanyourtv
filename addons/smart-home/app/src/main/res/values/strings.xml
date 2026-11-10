@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Smart Home</string>
+    <string name="quick_no_server">Smart Home is not set up yet: open the app and add the server.</string>
+    <string name="quick_none">No quick action set: push a config.json with a \&quot;quick\&quot; entity id.</string>
+    <string name="quick_digit_none">Number %1$d has no quick action set: push a config.json with a \&quot;quick_%1$d\&quot; key.</string>
+    <string name="quick_unknown">That quick entity is not a scene, script, automation, light, switch, fan or input boolean.</string>
+    <string name="quick_no_app">No app on this TV opens that link.</string>
 </resources>

@@ -40,7 +40,8 @@ Assistant, open your profile, then Security, then Long-lived access tokens, Crea
   ```
 
   `glance` is optional: without it the app picks the first weather entity and up to six euro fuel-price sensors.
-  `show`, `hide` and `hide_unavailable` are optional too, see [Choosing the rows](#choosing-the-rows).
+  `show`, `hide`, `hide_unavailable` and `quick` are optional too, see [Choosing the rows](#choosing-the-rows)
+  and [A remote button that runs one thing](#a-remote-button-that-runs-one-thing).
   The app takes the file into its own storage and deletes it. Keep the file outside the repo (`backup/` is
   git-ignored).
 
@@ -63,6 +64,47 @@ switches that filter off. The rows are filtered before the 80-row cap, and the g
 
 Tip: to list a room's entities, open Developer tools > Template in Home Assistant and enter
 `{{ area_entities('Living room') | join(', ') }}`; the ids it prints go straight into `show`.
+
+## A remote button that runs one thing
+
+A pushed file's `quick` key names one entity that a remote button runs without opening the app: a scene or a
+script turns on, an automation triggers, a light, switch, fan or input boolean toggles. It needs the server keys
+(the button uses the same address and token as the app). Map a remote button to it with the launcher's `app_keys`:
+
+```json
+{"url": "http://192.168.1.10:8123", "token": "eyJ...", "quick": "scene.movie_mode"}
+```
+
+```
+"app_keys": ["scan:<scancode>:io.github.maxhayim.smarthome/.QuickActivity"]
+```
+
+The press is silent when it works — the house changing is the feedback — and shows a toast only when
+something failed: no server set up, no entity for that digit, an unknown entity, or what went wrong on the
+network. A file with `quick` alone adds or changes it without touching the server
+keys. A mapped button when the add-on is not installed does nothing (that is the launcher's rule for every
+`app_keys` entry); when `quick` is not set, the toast says so.
+
+The remote's number buttons each carry their own: keys `quick_1` to `quick_0` in a pushed file name an entity
+per digit, and the launcher maps the number keys to the same activity:
+
+```json
+{"quick_1": "scene.movie_mode", "quick_2": "scene.tv_time", "quick_0": "script.all_off"}
+```
+
+```
+"app_keys": ["KEYCODE_1:io.github.maxhayim.smarthome/.QuickActivity"]
+```
+
+The launcher's key services attach the pressed key's code to every activity they open, so the activity picks
+the digit's entity; a digit with none toasts "Number 5 has no quick action set" instead of doing nothing.
+Changing what a number runs is a config push away, with no rebuild. Note a number key listed in `app_keys` is
+taken everywhere, including channel entry in a Live TV app.
+
+A value that is a link instead of an entity id opens on the TV rather than calling Home Assistant, and that
+press needs no server at all: `"quick_4": "https://www.youtube.com/watch?v=2wYtJwDkKIk"` plays that video in
+the TV's YouTube app (a `youtube.com` or `vnd.youtube:` link is aimed at the YouTube package directly, so no
+browser or chooser answers first; any other link opens by resolution).
 
 ## Permissions
 

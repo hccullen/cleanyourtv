@@ -31,6 +31,16 @@
             <meta-data android:name="com.gathin.tvhome.card" android:resource="@xml/module_card" />
         </activity>
 
+        <!-- A remote button mapped to this (the launcher's app_keys, "scan:<code>:io.github.maxhayim.smarthome/.QuickActivity")
+             runs the pushed config's "quick" entity on Home Assistant. Nothing on screen but a toast. -->
+        <activity
+            android:name=".QuickActivity"
+            android:exported="true"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- install.sh writes the server address and token here with `content write`, so the token never sits on
              a command line. Write-only, one file name, and only the ADB shell may call it. -->
         <provider

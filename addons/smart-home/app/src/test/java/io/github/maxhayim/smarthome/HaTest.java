@@ -53,6 +53,40 @@ public class HaTest {
     }
 
     @Test
+    public void digitsComeFromTheNumberKeys() {
+        assertEquals(0, Ha.digit(7));
+        assertEquals(9, Ha.digit(16));
+        assertEquals(0, Ha.digit(144));
+        assertEquals(9, Ha.digit(153));
+        assertEquals(-1, Ha.digit(0));
+        assertEquals(-1, Ha.digit(23));
+        assertEquals(-1, Ha.digit(401));
+    }
+
+    @Test
+    public void uriValuesOpenOnTheTvInstead() {
+        assertTrue(Ha.isUriTarget("https://www.youtube.com/watch?v=example"));
+        assertTrue(Ha.isUriTarget("vnd.youtube:example"));
+        assertFalse(Ha.isUriTarget("scene.movie_mode"));
+        assertFalse(Ha.isUriTarget(""));
+        assertFalse(Ha.isUriTarget(null));
+    }
+
+    @Test
+    public void quickRunsTheRightService() {
+        Ha.Call scene = Ha.quick("scene.movie_mode");
+        assertEquals("/api/services/scene/turn_on", scene.path);
+        assertEquals("{\"entity_id\":\"scene.movie_mode\"}", scene.body);
+        assertEquals("/api/services/script/turn_on", Ha.quick("script.movie_mode").path);
+        assertEquals("/api/services/automation/trigger", Ha.quick("automation.arrival").path);
+        assertEquals("/api/services/homeassistant/toggle", Ha.quick("light.living_room").path);
+        assertNull(Ha.quick("lock.front_door"));
+        assertNull(Ha.quick("weather.home"));
+        assertNull(Ha.quick(""));
+        assertNull(Ha.quick(null));
+    }
+
+    @Test
     public void aSceneThatNeverRanCanRun() throws Exception {
         // Home Assistant reports a scene as "unknown" until it has been activated once.
         List<Ha.Entity> all = Ha.parse("[{\"entity_id\":\"scene.never\",\"state\":\"unknown\",\"attributes\":{}},"

@@ -30,18 +30,34 @@ final class Config {
     final List<String> hide;
     /** Leave out rows Home Assistant reports as unavailable (and unknown, except scenes). */
     final boolean hideUnavailable;
+    /** The entity id a mapped remote button runs (the pushed file's "quick" key), or "" when none is set. */
+    final String quick;
+    /** Entity ids for the number keys, by digit 0-9 (the pushed file's "quick_<digit>" keys); "" where none is set. */
+    final String[] quicks;
 
     Config(String url, String token, List<String> glance) {
         this(url, token, glance, null, null, false);
     }
 
     Config(String url, String token, List<String> glance, List<String> show, List<String> hide, boolean hideUnavailable) {
+        this(url, token, glance, show, hide, hideUnavailable, "");
+    }
+
+    Config(String url, String token, List<String> glance, List<String> show, List<String> hide, boolean hideUnavailable,
+           String quick) {
+        this(url, token, glance, show, hide, hideUnavailable, quick, null);
+    }
+
+    Config(String url, String token, List<String> glance, List<String> show, List<String> hide, boolean hideUnavailable,
+           String quick, String[] quicks) {
         this.url = url;
         this.token = token;
         this.glance = Collections.unmodifiableList(glance == null ? Collections.emptyList() : glance);
         this.show = Collections.unmodifiableList(show == null ? Collections.emptyList() : show);
         this.hide = Collections.unmodifiableList(hide == null ? Collections.emptyList() : hide);
         this.hideUnavailable = hideUnavailable;
+        this.quick = quick == null ? "" : quick.trim();
+        this.quicks = quicks == null ? new String[10] : quicks;
     }
 
     boolean complete() {
@@ -54,9 +70,11 @@ final class Config {
 
     static Config load(Context c) {
         SharedPreferences p = prefs(c);
+        String[] quicks = new String[10];
+        for (int d = 0; d < quicks.length; d++) quicks[d] = p.getString("quick_" + d, "").trim();
         return new Config(p.getString("url", ""), p.getString("token", ""), readGlance(p.getString("glance", "")),
                 readGlance(p.getString("show", "")), readGlance(p.getString("hide", "")),
-                p.getBoolean("hide_unavailable", false));
+                p.getBoolean("hide_unavailable", false), p.getString("quick", ""), quicks);
     }
 
     private static void saveList(Context c, String key, List<String> ids) {
@@ -73,6 +91,10 @@ final class Config {
 
     static void saveGlance(Context c, List<String> ids) {
         prefs(c).edit().putString("glance", joinGlance(ids)).apply();
+    }
+
+    static void saveQuick(Context c, String id) {
+        prefs(c).edit().putString("quick", id == null ? "" : id.trim()).apply();
     }
 
     /**
@@ -92,6 +114,12 @@ final class Config {
             if (o.has("hide")) saveList(c, "hide", parseGlance(o.opt("hide")));
             if (o.has("hide_unavailable")) {
                 prefs(c).edit().putBoolean("hide_unavailable", o.optBoolean("hide_unavailable", false)).apply();
+            }
+            if (o.has("quick")) saveQuick(c, o.optString("quick"));
+            for (int d = 0; d <= 9; d++) {
+                if (o.has("quick_" + d)) {
+                    prefs(c).edit().putString("quick_" + d, o.optString("quick_" + d).trim()).apply();
+                }
             }
             return true;
         } catch (Exception e) {

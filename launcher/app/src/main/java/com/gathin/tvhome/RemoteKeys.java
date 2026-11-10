@@ -207,10 +207,10 @@ final class RemoteKeys {
         String button = event.getDeviceId() + ":" + event.getKeyCode() + ":" + event.getScanCode();
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             presses.down(button, event.getEventTime(), event.getRepeatCount(), holdApp, ctx,
-                    target -> launch(ctx, target));
+                    target -> launch(ctx, target, event.getKeyCode(), event.getScanCode()));
         } else if (event.getAction() == KeyEvent.ACTION_UP) {
             presses.up(button, event.getEventTime(), event.getDownTime(), event.isCanceled(), app, holdApp,
-                    target -> launch(ctx, target));
+                    target -> launch(ctx, target, event.getKeyCode(), event.getScanCode()));
         }
         return true;
     }
@@ -422,10 +422,19 @@ final class RemoteKeys {
         return target != null && inputId(target) == null && target.indexOf('/') > 0;
     }
 
+    /** Extras a "package/.Activity" target's intent carries, so the activity can tell buttons apart (the Smart
+     *  Home add-on's number-key quick actions, say). Absent when the launch came from somewhere without a key. */
+    static final String EXTRA_KEYCODE = "com.gathin.tvhome.extra.keycode";
+    static final String EXTRA_SCANCODE = "com.gathin.tvhome.extra.scancode";
+
+    static void launch(Context ctx, String pkg) {
+        launch(ctx, pkg, 0, 0);
+    }
+
     /** Opens an app from a remote button: its TV entry if it has one, else its phone entry. An "input:<id>" target
      *  switches to that TV input (an HDMI port) instead, an action word runs that action, and a
-     *  "package/.Activity" target opens that activity. */
-    static void launch(Context ctx, String pkg) {
+     *  "package/.Activity" target opens that activity, carrying the pressed key's codes as extras. */
+    static void launch(Context ctx, String pkg, int keyCode, int scanCode) {
         if (pkg == null || runAction(ctx, pkg)) return;
         if (INPUTS.equals(pkg)) {
             // This launcher's own Inputs menu, as InputsRequestActivity opens it: addressed to Home directly, so a
@@ -471,7 +480,10 @@ final class RemoteKeys {
         ComponentName activity = isActivity(pkg) ? ComponentName.unflattenFromString(pkg) : null;
         if (activity != null) {
             try {
-                ctx.startActivity(new Intent().setComponent(activity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                Intent open = new Intent().setComponent(activity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (keyCode != 0) open.putExtra(EXTRA_KEYCODE, keyCode);
+                if (scanCode != 0) open.putExtra(EXTRA_SCANCODE, scanCode);
+                ctx.startActivity(open);
             } catch (ActivityNotFoundException | SecurityException ignored) {
             }
             return;
