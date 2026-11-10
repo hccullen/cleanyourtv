@@ -55,6 +55,7 @@ public class InputKeyService extends AccessibilityService {
         holdAppScancodes = RemoteKeys.parseHoldAppScancodes(config.appKeys);
         frontAppKeys = RemoteKeys.parseFrontAppKeys(config.appKeys);
         frontAppScancodes = RemoteKeys.parseFrontAppScancodes(config.appKeys);
+        VolumeHud.listen(this);
         // gamepad_passthrough and volume_pauses_filter, off by default.
         if (gamepads == null) gamepads = GamepadPassthrough.start(this, config);
     }
@@ -67,6 +68,8 @@ public class InputKeyService extends AccessibilityService {
 
     @Override
     protected boolean onKeyEvent(KeyEvent event) {
+        // volume_hud (local patch): shown on the press in every app; the broadcast refreshes it.
+        VolumeHud.show(this, event);
         if (consumeVolumeKeys && VolumeKeys.handle(this, event)) return true;
         // A scancode entry is more specific than any keycode, so it goes first.
         if (RemoteKeys.handle(this, event, RemoteKeys.tap(appScancodes.get(event.getScanCode()),
@@ -99,6 +102,7 @@ public class InputKeyService extends AccessibilityService {
         RemoteKeys.release(this);
         if (gamepads != null) gamepads.stop();
         if (consumeVolumeKeys) VolumeKeys.stop();
+        VolumeHud.dismiss();
         super.onDestroy();
     }
 

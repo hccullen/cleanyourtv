@@ -151,6 +151,7 @@ public class HomeKeyService extends AccessibilityService {
         }
         if (gamepads != null) gamepads.stop();
         if (consumeVolumeKeys) VolumeKeys.stop();
+        VolumeHud.dismiss();
         super.onDestroy();
     }
 
@@ -235,6 +236,7 @@ public class HomeKeyService extends AccessibilityService {
         }
         if (!stockHome.isEmpty() || !powerOnLiveTv.isEmpty()) probeAtBoot();
         armStandbyExit();
+        VolumeHud.listen(this);
         holdAppKeys = RemoteKeys.parseHoldAppKeys(config.appKeys);
         holdAppScancodes = RemoteKeys.parseHoldAppScancodes(config.appKeys);
         // gamepad_passthrough and volume_pauses_filter, off by default.
@@ -265,6 +267,9 @@ public class HomeKeyService extends AccessibilityService {
                 && event.getKeyCode() != KeyEvent.KEYCODE_POWER && event.getKeyCode() != KeyEvent.KEYCODE_WAKEUP) {
             powerOnUntil = 0;
         }
+        // volume_hud (local patch): this firmware draws no volume UI while the sound runs over HDMI
+        // ARC. Shown here on the press; the volume-changed broadcast refreshes it as the level lands.
+        VolumeHud.show(this, event);
         if (consumeVolumeKeys && VolumeKeys.handle(this, event)) return true;
         // A scancode entry is more specific than any keycode, so it goes first.
         if (RemoteKeys.handle(this, event, inFront(appScancodes, frontAppScancodes, event.getScanCode()),
