@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 16:9 banner: the add-on's own pill, top right, over a dim picture. Own art. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
+    <path android:fillColor="#101418" android:pathData="M0,0h320v180h-320z" />
+    <path android:fillColor="#1E2630" android:pathData="M24,24h272v132h-272z" />
+    <!-- The capsule where the add-on draws it, with its track and the level bar inside. -->
+    <path android:fillColor="#23262E" android:pathData="M196,42h74a11,11 0 0 1 11,11v0a11,11 0 0 1 -11,11h-74a11,11 0 0 1 -11,-11v0a11,11 0 0 1 11,-11z" />
+    <path android:fillColor="#2EFFFFFF" android:pathData="M196,51h50a2.5,2.5 0 0 1 0,5h-50a2.5,2.5 0 0 1 0,-5z" />
+    <path android:fillColor="#E6FFFFFF" android:pathData="M196,51h30a2.5,2.5 0 0 1 0,5h-30a2.5,2.5 0 0 1 0,-5z" />
+</vector>
