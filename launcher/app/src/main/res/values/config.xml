@@ -18,10 +18,11 @@
 
     <!-- Apps pinned to the dock row at the bottom, in this order. Missing apps are skipped. -->
     <string-array name="dock_apps">
-        <item>com.netflix.ninja</item>
-        <item>com.amazon.amazonvideo.livingroom</item>
         <item>com.google.android.youtube.tv</item>
-        <item>in.startv.hotstar</item>
+        <item>com.netflix.ninja</item>
+        <item>dk.dr.tvplayer</item>
+        <item>com.wbd.stream</item>
+        <item>com.tcl.browser</item>
     </string-array>
     <!-- With fewer dock_apps than columns (or a dock app that is not installed), the free dock slots take
          the first grid apps, so the dock never shows a gap. false leaves them empty (#162); a theme can
@@ -30,12 +31,13 @@
 
     <!-- Apps never shown as tiles (e.g. the Live TV app, which the Inputs menu already covers). -->
     <string-array name="hidden_apps">
-        <item>com.mediatek.wwtv.tvcenter</item>
-        <item>com.mitv.gallery</item>
+        <item>org.droidtv.playtv</item>
+        <item>org.droidtv.demome</item>
+        <item>org.droidtv.eum</item>
     </string-array>
 
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
-    <string name="live_tv_package" translatable="false">com.mediatek.wwtv.tvcenter</string>
+    <string name="live_tv_package" translatable="false">org.droidtv.playtv</string>
 
     <!-- Open the Live TV app above the first time Home comes up after the TV is switched on, for sets that are
          mostly used for broadcast TV. Once per boot: Home after that stays Home. Can also be set with
@@ -85,14 +87,17 @@
          opens that URI in the package instead (ACTION_VIEW): Bbox TV's live channels are
          fr.bouyguestelecom.tv.bbui=view:bbox://live. -->
     <string-array name="launch_actions">
+        <item>com.tcl.browser=view:https://video.rangers.co.uk/home</item>
     </string-array>
 
     <!-- A tile's name instead of the app's own: "package=Name". It also shows above the dock. -->
     <string-array name="app_labels">
+        <item>com.tcl.browser=Rangers</item>
     </string-array>
     <!-- A tile's artwork instead of the app's banner: "package=drawable", a banner_* drawable bundled with the
          launcher (res/drawable). banner_tv is a magenta field with the Live TV glyph. -->
     <string-array name="app_banners">
+        <item>com.tcl.browser=banner_rangerstv</item>
     </string-array>
 
     <!-- TVs with no TvInputManager have no HDMI list to read, but their own source-selection panel
@@ -142,7 +147,13 @@
          that applies a volume key before the filter and again when the helper hands it back, so one tap moves two
          steps (TCL G03 / BeyondTV4 on Android 11, #1100); a swallowed key gets no auto-repeat from Android, hence
          the helper's own. Leave it off where a tap is one step. A theme can set it ("consume_volume_keys"). -->
-    <bool name="consume_volume_keys">false</bool>
+    <bool name="consume_volume_keys">true</bool>
+
+    <!-- Local patch for this TV (not part of the upstream repo): with key_filter on, the key services
+         show a small glass pill with the volume level while Volume Up/Down is pressed, over every
+         app. This firmware draws no volume UI while the sound runs over HDMI ARC; the pill reads the
+         level the TV tracks from the amplifier's CEC reports. false shows nothing. -->
+    <bool name="volume_hud">true</bool>
 
     <!-- With key_filter on, a volume change stops HomeKeyService and InputKeyService filtering keys for 4 s. For
          firmware that changes volume once per press while any service filters keys, so a held volume key never
@@ -245,6 +256,21 @@
          where the firmware hands KEYCODE_GUIDE (172) to the stock launcher and no app ever receives it. Leave empty
          to omit. -->
     <string-array name="app_keys" translatable="false">
+        <item>scan:632:com.netflix.ninja</item>
+        <item>scan:779:dk.dr.tvplayer</item>
+        <item>scan:788:com.wbd.stream</item>
+        <item>scan:781:com.google.android.youtube.tv</item>
+        <item>scan:398:input:com.mediatek.tvinput/.hdmi.HDMIInputService/HW6</item>
+        <item>KEYCODE_0:io.github.maxhayim.smarthome/.QuickActivity</item>
+        <item>KEYCODE_1:io.github.maxhayim.smarthome/.QuickActivity</item>
+        <item>KEYCODE_2:io.github.maxhayim.smarthome/.QuickActivity</item>
+        <item>KEYCODE_3:io.github.maxhayim.smarthome/.QuickActivity</item>
+        <item>KEYCODE_4:io.github.maxhayim.smarthome/.QuickActivity</item>
+        <item>KEYCODE_5:io.github.maxhayim.smarthome/.QuickActivity</item>
+        <item>KEYCODE_6:io.github.maxhayim.smarthome/.QuickActivity</item>
+        <item>KEYCODE_7:io.github.maxhayim.smarthome/.QuickActivity</item>
+        <item>KEYCODE_8:io.github.maxhayim.smarthome/.QuickActivity</item>
+        <item>KEYCODE_9:io.github.maxhayim.smarthome/.QuickActivity</item>
     </string-array>
 
     <!-- Package of the stock launcher, for TVs whose firmware turns it back on after it was disabled. XGIMI's
@@ -263,7 +289,7 @@
     <!-- Home at every power-on, whatever the firmware put in front (the last HDMI input, Live TV or an app),
          for TVs that come back to the last source, like Philips. Needs HOME_KEY_SERVICE=1; a key pressed first
          wins. Ignored with boot_to_live_tv or an Open on start app. Can also be set with "power_on_home_always". -->
-    <bool name="power_on_home_always">false</bool>
+    <bool name="power_on_home_always">true</bool>
 
     <!-- Every press of the remote's Home button opens this launcher, a held one too. Android turns a Home press held
          past the long-press timeout (400 ms) into its long-press action; on Android TV that is ALL_APPS, sent to the
@@ -272,7 +298,7 @@
          there. HomeKeyService (HOME_KEY_SERVICE=1) then takes the Home key itself and opens Home on release. Needs
          key_filter, so held keys such as Volume Up/Down stop repeating (confirmed on that Philips; single presses
          still step). A theme's config.json can set it too. Off by default. -->
-    <bool name="home_long_press_home">false</bool>
+    <bool name="home_long_press_home">true</bool>
 
     <!-- Show the Solar Hijri (Shamsi) date used in Iran and Afghanistan, e.g. "27 Mehr 1405", above the
          Gregorian date. -->
@@ -313,7 +339,7 @@
     <bool name="dock_row">true</bool>
     <!-- Inputs, Wi-Fi and Settings folded into one round gear at the top right, like Google TV: OK drops a menu
          with the three, hold OK keeps the launcher menu. Off by default; a theme can set "top_menu": true. -->
-    <bool name="top_menu">false</bool>
+    <bool name="top_menu">true</bool>
     <!-- A direct Launcher settings action instead of TV Settings in the header (or top_menu).
          Off by default; a theme can set "launcher_settings_button": true. -->
     <bool name="launcher_settings_button">false</bool>
@@ -421,7 +447,7 @@
 
     <!-- Tiles per row in the grid; the dock always has this many slots. Tiles are 180dp wide at 4 columns and
          shrink to fit from 5 up (about 144dp at 5, 117dp at 6 on a 1080p TV). -->
-    <integer name="columns">4</integer>
+    <integer name="columns">5</integer>
 
     <!-- Basic motion is on; advanced effects are opt-in in the launcher's own Settings screen. -->
     <bool name="animations">true</bool>
