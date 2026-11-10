@@ -149,12 +149,6 @@
          the helper's own. Leave it off where a tap is one step. A theme can set it ("consume_volume_keys"). -->
     <bool name="consume_volume_keys">true</bool>
 
-    <!-- Local patch for this TV (not part of the upstream repo): with key_filter on, the key services
-         show a small glass pill with the volume level while Volume Up/Down is pressed, over every
-         app. This firmware draws no volume UI while the sound runs over HDMI ARC; the pill reads the
-         level the TV tracks from the amplifier's CEC reports. false shows nothing. -->
-    <bool name="volume_hud">true</bool>
-
     <!-- With key_filter on, a volume change stops HomeKeyService and InputKeyService filtering keys for 4 s. For
          firmware that changes volume once per press while any service filters keys, so a held volume key never
          repeats, and the helpers never see the volume keys (Xiaomi MOEU0, Google TV 14): the first press steps
