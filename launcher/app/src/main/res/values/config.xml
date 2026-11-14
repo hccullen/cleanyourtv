@@ -560,12 +560,12 @@
     <!-- How bright that glow rests, in percent (100 as before). Below 100 tones it down without losing the app's
          colour; 0 leaves the glow's slice of screen as dark as the background. Can also be set with
          "ambient_glow_intensity" in a theme's config.json. -->
-    <integer name="ambient_glow_intensity">100</integer>
+    <integer name="ambient_glow_intensity">80</integer>
     <!-- While the top bar is focused, slide the whole grid - the dock band and every tile - off the bottom of the
          screen, leaving the wallpaper between the clock and the bar. Focus back on a tile slides it in again.
          false keeps the grid on screen whatever is focused. Can also be set with "grid_hide_on_top_bar": true in
          a theme's config.json. -->
-    <bool name="grid_hide_on_top_bar">false</bool>
+    <bool name="grid_hide_on_top_bar">true</bool>
     <!-- true: when the focus moves to an app of another colour, the ambient glow takes the new colour in one frame
          instead of dimming and fading back in. Each frame of that fade repaints the whole screen, about 40 per key
          press, which a slow GPU such as the Mali-G52 cannot keep up with. Can also be set with "glow_snap" in a
