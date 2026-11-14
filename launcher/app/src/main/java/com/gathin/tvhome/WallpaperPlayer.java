@@ -48,15 +48,30 @@ final class WallpaperPlayer {
     private final int dimColor;
     /** The picture on screen, released once the next one has been drawn. */
     private Bitmap current;
+    /** The picture fading in on {@link #fader} while a cross-fade runs; null when none does. */
+    private Bitmap fading;
+    /** The picture a cross-fade is covering on the base view, recycled once the fade has settled. */
+    private Bitmap retired;
     private boolean active;
     private boolean closed;
     private boolean loading;
     private String displayed = "";
-    /** wallpaper_captions: the shown picture's name from wallpapers/captions.txt; null when off or there are none. */
+    /** wallpaper_captions: the shown picture's name and date from wallpapers/captions.txt; null when off or there are none. */
     private final TextView caption;
-    private final Map<String, String> names;
+    /** wallpaper_caption_date: the shown picture's date, a smaller line under the caption; null when off. */
+    private final TextView dateLine;
+    private final Map<String, WallpaperCaptions.Caption> names;
     /** wallpaper_moods: the collection's groups by time of day; empty rotates through all of it. */
     private final Map<String, Set<String>> moods;
+    /** wallpaper_order "daily": the whole collection shuffled once per date, changing with the first tick of a new day. */
+    private final boolean daily;
+    /** Today's shuffle of the collection while order is "daily"; rebuilt when the day moves. */
+    private List<File> dayOrder;
+    private LocalDate orderDay;
+    /** config wallpaper_crossfade_ms: how long a new picture fades in over the old one; 0 swaps at once. */
+    private final int crossfadeMs;
+    /** The second view a cross-fade draws over {@link #image}; null when crossfadeMs is 0. */
+    private final ImageView fader;
     /** config.xml latitude and longitude for the sun's times, and today's {sunrise, sunset} once worked out. */
     private final String latitude, longitude;
     private LocalDate sunDay;
@@ -71,6 +86,8 @@ final class WallpaperPlayer {
         // The dim is painted into the picture (decode), so no full-screen shade layer is drawn on every frame.
         dimColor = config.wallpaperDim > 0 ? (config.wallpaperDim * 255 / 100) << 24 : 0;
         order = config.wallpaperOrder;
+        daily = WallpaperRotation.ORDER_DAILY.equals(order);
+        crossfadeMs = config.wallpaperCrossfadeMs;
         preferences = context.getSharedPreferences("wallpaper_rotation", Context.MODE_PRIVATE);
         moods = config.wallpaperMoods;
         latitude = moods.isEmpty() ? "" : context.getString(R.string.latitude);
@@ -91,11 +108,26 @@ final class WallpaperPlayer {
         names = config.wallpaperCaptions && config.wallpaperEnabled && !files.isEmpty()
                 ? WallpaperCaptions.read(files.get(0).getParentFile()) : Collections.emptyMap();
         caption = names.isEmpty() ? null : makeCaption(context, root);
+        dateLine = caption == null || !config.wallpaperCaptionDate ? null : makeDate(context, root);
         if (config.wallpaperEnabled && !files.isEmpty()) {
             root.addView(image, 0, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            fader = crossfadeMs > 0 ? makeFader(context, root) : null;
             showFirst();
+        } else {
+            fader = null;
         }
+    }
+
+    /** The second view a cross-fade draws over the base one: same fill, never focusable, transparent at rest. */
+    private static ImageView makeFader(Context context, FrameLayout root) {
+        ImageView view = new ImageView(context);
+        view.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        view.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        view.setAlpha(0f);
+        root.addView(view, 1, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        return view;
     }
 
     /**
@@ -122,7 +154,7 @@ final class WallpaperPlayer {
                 }
                 return;
             }
-            files.remove(first);   // unreadable or over 4K: try another, or keep the plain colour
+            drop(first);   // unreadable or over 4K: try another, or keep the plain colour
             playable = playable();
             first = WallpaperRotation.pick(playable, previous, order, random);
         }
@@ -140,6 +172,7 @@ final class WallpaperPlayer {
     /** Drops the wallpaper texture when Home is hidden and Android asks the process to free memory. */
     void releaseForMemoryPressure() {
         if (current == null) return;
+        settle();
         image.setImageDrawable(null);
         // The renderer may still have a queued frame that references this hardware bitmap. Drop our references and
         // let Android reclaim its native buffer after rendering releases it instead of recycling it mid-frame.
@@ -148,9 +181,45 @@ final class WallpaperPlayer {
         root.setBackgroundColor(backgroundColor);
     }
 
+    /** Whether the skip keys have a rotation to move: more than one playable picture while Home shows it. */
+    boolean canSkip() {
+        return active && !closed && files.size() > 1;
+    }
+
+    /**
+     * The skip keys (wallpaper_next_keycodes / wallpaper_prev_keycodes): the next or previous picture
+     * now, not at the next tick. A decode in flight answers nothing - the next press moves once it
+     * lands, so a held key steps the collection at the pace the decoder keeps.
+     */
+    void skip(int direction) {
+        if (!canSkip() || loading) return;
+        List<File> playable = playable();
+        if (playable.size() < 2) return;
+        File target = direction < 0
+                ? WallpaperRotation.previous(playable, displayed)
+                : WallpaperRotation.pick(playable, displayed, order, random);
+        if (target == null || target.getName().equals(displayed)) return;
+        load(target);
+    }
+
+    /** Removes a picture the decoder could not read from every list the rotation picks from. */
+    private void drop(File file) {
+        files.remove(file);
+        if (dayOrder != null) dayOrder.remove(file);
+    }
+
     /** The pictures the rotation picks from now: wallpaper_moods' group for the time of day, or the whole collection. */
     private List<File> playable() {
-        if (moods.isEmpty()) return files;
+        if (moods.isEmpty()) {
+            if (!daily) return files;
+            // Today's shuffle: seeded by the date, so a restart mid-day resumes the same order.
+            LocalDate today = LocalDate.now();
+            if (orderDay == null || !today.equals(orderDay)) {
+                orderDay = today;
+                dayOrder = WallpaperRotation.dailyOrder(files, today.toEpochDay());
+            }
+            return dayOrder;
+        }
         LocalDateTime now = LocalDateTime.now();
         if (!now.toLocalDate().equals(sunDay)) {
             sunDay = now.toLocalDate();
@@ -176,7 +245,11 @@ final class WallpaperPlayer {
             selected = WallpaperRotation.pick(playable, previous, order, random);
         }
         if (selected == null || selected.getName().equals(displayed)) return;
-        File next = selected;
+        load(selected);
+    }
+
+    /** Decodes a picture off the UI thread and puts it on screen once ready; the interval starts over from it. */
+    private void load(File next) {
         loading = true;
         decoder.execute(() -> {
             Bitmap bitmap = decode(next);
@@ -187,7 +260,7 @@ final class WallpaperPlayer {
                     return;
                 }
                 if (bitmap == null) {
-                    files.remove(next);
+                    drop(next);
                     Log.w("TvHome.Wallpaper", "Skipping unreadable image: " + next.getName());
                     update();
                     return;
@@ -195,10 +268,8 @@ final class WallpaperPlayer {
                 show(bitmap);
                 displayed = next.getName();
                 showCaption(true);
-                if (!displayed.equals(previous) || changed == 0) {
-                    preferences.edit().putString("image", displayed)
-                            .putLong("changed", System.currentTimeMillis()).apply();
-                }
+                preferences.edit().putString("image", displayed)
+                        .putLong("changed", System.currentTimeMillis()).apply();
             });
         });
     }
@@ -237,25 +308,65 @@ final class WallpaperPlayer {
         return text;
     }
 
-    /** The displayed picture's name, faded across a change; a picture without a name hides the caption. */
+    /** The caption's date line: the same shape, smaller and dimmer, a little under the caption. */
+    private static TextView makeDate(Context context, FrameLayout root) {
+        float dp = context.getResources().getDisplayMetrics().density;
+        TextView text = new TextView(context);
+        text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        text.setTextColor(0x99FFFFFF);
+        text.setShadowLayer(6 * dp, 0, dp, 0xCC000000);
+        text.setSingleLine(true);
+        text.setEllipsize(TextUtils.TruncateAt.END);
+        text.setMaxWidth(Math.round(520 * dp));
+        text.setFocusable(false);
+        text.setAlpha(0f);
+        try {
+            text.setTypeface(UiFont.get(context, R.string.font_regular));
+        } catch (Exception ignored) {
+            // the system font is fine
+        }
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
+        params.topMargin = Math.round(132 * dp);
+        params.setMarginEnd(Math.round(62 * dp));
+        root.addView(text, params);
+        return text;
+    }
+
+    /** The displayed picture's name and date, faded together across a change; a picture without a name hides both. */
     private void showCaption(boolean fade) {
         if (caption == null) return;
-        String name = names.get(displayed);
+        WallpaperCaptions.Caption entry = names.get(displayed);
+        String name = entry == null ? null : entry.name;
+        String date = entry == null || entry.date == null ? "" : entry.date;
         caption.animate().cancel();
+        if (dateLine != null) dateLine.animate().cancel();
         if (name == null) {
             caption.setAlpha(0f);
+            if (dateLine != null) dateLine.setAlpha(0f);
             return;
         }
         caption.setContentDescription(name);
+        boolean dated = !date.isEmpty();
         if (!fade || caption.getAlpha() == 0f) {
             caption.setText(name);
             caption.setAlpha(1f);
+            if (dateLine != null) {
+                dateLine.setText(date);
+                dateLine.setAlpha(dated ? 1f : 0f);
+            }
             return;
         }
         caption.animate().alpha(0f).setDuration(250).withEndAction(() -> {
             caption.setText(name);
             caption.animate().alpha(1f).setDuration(350).start();
         }).start();
+        if (dateLine != null) {
+            dateLine.animate().alpha(0f).setDuration(250).withEndAction(() -> {
+                dateLine.setText(date);
+                dateLine.animate().alpha(dated ? 1f : 0f).setDuration(350).start();
+            }).start();
+        }
     }
 
     /** Names plus sizes: enough to notice a different collection without hashing every image. */
@@ -265,14 +376,43 @@ final class WallpaperPlayer {
         return key.toString();
     }
 
-    /** Puts a picture on screen and releases the previous one after a frame has drawn the new one. */
+    /** Puts a picture on screen, cross-fading over the previous one when configured, and releases the old one. */
     private void show(Bitmap bitmap) {
+        settle();
         Bitmap old = current;
         current = bitmap;
         // The wallpaper covers the whole root; avoid drawing the fallback colour under it.
         root.setBackground(null);
+        if (fader != null && old != null && old != bitmap) {
+            // The old picture stays on the base view while the new one fades in over it.
+            retired = old;
+            fading = bitmap;
+            fader.setImageBitmap(bitmap);
+            fader.setAlpha(0f);
+            fader.animate().alpha(1f).setDuration(crossfadeMs).withEndAction(this::settle).start();
+            return;
+        }
         image.setImageBitmap(bitmap);
         if (old != null && old != bitmap) image.postDelayed(old::recycle, 500);
+    }
+
+    /**
+     * Ends a running cross-fade at once: the fading picture moves to the base view and the covered
+     * one is released. Called when the fade completes, when the next picture is ready before it does,
+     * and when the wallpaper is dropped for memory.
+     */
+    private void settle() {
+        if (fader == null) return;
+        fader.animate().cancel();
+        if (fading == null) return;
+        Bitmap settled = fading;
+        fading = null;
+        image.setImageBitmap(settled);
+        fader.setImageDrawable(null);
+        fader.setAlpha(0f);
+        Bitmap covered = retired;
+        retired = null;
+        if (covered != null && covered != settled) image.postDelayed(covered::recycle, 500);
     }
 
     private Bitmap decode(File file) {

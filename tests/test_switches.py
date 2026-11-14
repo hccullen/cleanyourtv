@@ -55,6 +55,10 @@ SCREENSHOT_WANTED = {
     "tile_menu", "top_menu", "vpn_app", "wallpaper", "wallpaper_captions", "wallpaper_dim",
     "wallpaper_moods", "wallpaper_order", "wallpaper_true_color", "wifi_label_width",
     "wifi_status_color",
+    # Local fork: keys from this TV's personal patches (cross-fade, caption dates, skip keys,
+    # the grid slide, the glow dimmer). They carry no screenshot by design.
+    "ambient_glow_intensity", "grid_hide_on_top_bar", "wallpaper_caption_date",
+    "wallpaper_crossfade_ms", "wallpaper_next_keycodes", "wallpaper_prev_keycodes",
 }
 
 

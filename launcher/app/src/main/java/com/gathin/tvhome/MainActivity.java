@@ -157,6 +157,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** config.xml ambient_glow, overridable by a theme. Off: the glow view is gone and no fade or colour animator
      *  is started for it, so a focus move costs nothing extra on a launcher that runs all day. */
     private boolean ambientGlow;
+    /** config.xml ambient_glow_intensity as a fraction: the glow's resting alpha, 1 as before. */
+    private float glowAlpha = 1f;
+    /** config.xml grid_hide_on_top_bar: while the top bar is focused, the whole grid slides off the screen. */
+    private boolean gridHideOnTopBar;
+    /** Whether the grid is currently slid off for the top bar (grid_hide_on_top_bar). */
+    private boolean gridHiddenByBar;
+    /** The top bar's pill row; a focus inside it slides the grid away (grid_hide_on_top_bar). */
+    private ViewGroup topBar;
     /** config.xml app_glow: the highlight takes the focused app's colour on every tile. */
     private boolean appGlow;
     /** config.xml glow_style: the shape setAmbient paints the glow mask in. */
@@ -257,6 +265,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private int[] settingsKeycodes = new int[0];
     private boolean settingsKeyPanel;
     private boolean settingsKeyClearTask;
+    /** config wallpaper_next_keycodes / wallpaper_prev_keycodes: keys that step a rotating collection on Home. */
+    private int[] wallpaperNextKeycodes = new int[0];
+    private int[] wallpaperPrevKeycodes = new int[0];
     /** Calmer motion for weak GPUs (config.xml, reduced_motion): stiff spring, short fades, no replay. */
     private boolean reducedMotion;
     /** config.xml dock_row: the first row is a separate dock (band, parked low, top shelf) rather than plain grid. */
@@ -476,6 +487,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         settingsKeycodes = cfg.settingsKeycodes;
         settingsKeyPanel = cfg.settingsKeyPanel;
         settingsKeyClearTask = cfg.settingsKeyClearTask;
+        wallpaperNextKeycodes = cfg.wallpaperNextKeycodes;
+        wallpaperPrevKeycodes = cfg.wallpaperPrevKeycodes;
         COLUMNS = cfg.columns;
         animations = cfg.animations;
         advancedEffects = cfg.animations && cfg.advancedEffects;
@@ -523,6 +536,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // a fade renders it into a full-screen offscreen buffer first.
         ambient.forceHasOverlappingRendering(false);
         ambientGlow = cfg.ambientGlow;
+        glowAlpha = cfg.ambientGlowIntensity / 100f;
+        gridHideOnTopBar = cfg.gridHideOnTopBar;
         glowSnap = cfg.glowSnap;
         appGlow = cfg.appGlow;
         if (!ambientGlow) ambient.setVisibility(View.GONE);
@@ -934,8 +949,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         // Hide the glass when focus leaves the tiles.
         // Taken off in onDestroy: recreate() keeps the window, and a listener left on it held every earlier Home.
+        topBar = (ViewGroup) btnSettings.getParent();
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener(glassFocusListener);
-
         packageFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
         packageFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
         packageFilter.addAction(Intent.ACTION_PACKAGE_CHANGED);
@@ -1381,6 +1396,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private final ViewTreeObserver.OnGlobalFocusChangeListener glassFocusListener = (oldF, newF) -> {
         boolean onTile = newF != null && newF.getId() == R.id.card;
         if (!onTile) hideGlass();
+        // grid_hide_on_top_bar: focus on the top bar slides the whole grid - the dock band and every
+        // tile - off the screen, so the wallpaper runs under the clock and the bar alone.
+        if (gridHideOnTopBar) setGridHiddenForBar(newF != null && newF.getParent() == topBar);
     };
 
     @Override
@@ -1424,6 +1442,31 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         return false;
     }
 
+    /**
+     * wallpaper_next_keycodes / wallpaper_prev_keycodes (e.g. fast-forward and rewind, 90 and 89): the keys
+     * that step a rotating collection to the next or previous picture. Only Home in front sees them - another
+     * app's media session keeps its keys - and a press while a menu or an editing mode is open passes through.
+     * Held keys repeat; the player's decoder sets the pace a repeat can step at.
+     */
+    private boolean handleWallpaperKey(KeyEvent event) {
+        if (event.getAction() != KeyEvent.ACTION_DOWN || openPopup != null || cardPrompt != null
+                || reordering || dockEditing || !wallpaperPlayer.canSkip()) return false;
+        int code = event.getKeyCode();
+        for (int keycode : wallpaperNextKeycodes) {
+            if (keycode == code) {
+                wallpaperPlayer.skip(1);
+                return true;
+            }
+        }
+        for (int keycode : wallpaperPrevKeycodes) {
+            if (keycode == code) {
+                wallpaperPlayer.skip(-1);
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ---- reorder ---------------------------------------------------------------------------------
 
     /** Blue the glass turns while reorder mode is on. */
@@ -1447,6 +1490,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (resumed && event.getKeyCode() >= 1000 && RemoteKeys.handle(this, event, homeAppKeys.get(event.getKeyCode()),
                 homeHoldAppKeys.get(event.getKeyCode()))) return true;
         if (handleSettingsKey(event)) return true;
+        if (handleWallpaperKey(event)) return true;
         if (holdOk(event)) return true;
         if (tileMenuEnabled && !reordering && openPopup == null && cardPrompt == null
                 && event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
@@ -2183,10 +2227,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         stopAmbientAnimation();
         ambient.animate().cancel();
         if (color == ambientColor) {
-            ambient.animate().alpha(1f).setDuration(180).start();
+            ambient.animate().alpha(glowAlpha).setDuration(180).start();
             return;
         }
-        ambient.animate().alpha(1f).setDuration(180).start();
+        ambient.animate().alpha(glowAlpha).setDuration(180).start();
         ambientAnimator = ValueAnimator.ofObject(new ArgbEvaluator(), ambientColor, color);
         ambientAnimator.setDuration(360);
         ambientAnimator.addUpdateListener(animation -> setAmbient((int) animation.getAnimatedValue()));
@@ -2216,22 +2260,22 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (!ambientGlow) return;
         if (!animations || reducedMotion) {
             setAmbient(color);
-            ambient.setAlpha(1f);
+            ambient.setAlpha(glowAlpha);
             return;
         }
         if (color == ambientColor && ambient.getBackground() != null) {
-            ambient.animate().alpha(1f).setDuration(300).start();
+            ambient.animate().alpha(glowAlpha).setDuration(300).start();
             return;
         }
         if (glowSnap) {
             setAmbient(color);
-            ambient.setAlpha(1f);
+            ambient.setAlpha(glowAlpha);
             return;
         }
         // The same dip-and-swap as the dock's top shelf.
         ambient.animate().alpha(0.35f).setDuration(ambient.getAlpha() > 0.35f ? 200 : 0).withEndAction(() -> {
             setAmbient(color);
-            ambient.animate().alpha(1f).setDuration(500).start();
+            ambient.animate().alpha(glowAlpha).setDuration(500).start();
         }).start();
     }
 
@@ -2259,6 +2303,23 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         glass.animate().cancel();
         if (animations && !reducedMotion) glass.animate().alpha(0f).setDuration(160).start();
         else glass.setAlpha(0f);
+    }
+
+    /**
+     * grid_hide_on_top_bar: focus on the top bar slides the whole grid - the dock band and every tile - off the
+     * bottom of the screen, where the wrapper clips it, leaving the wallpaper between the clock and the bar.
+     * The dock's name and glow go with it (hideHero); a focus back on a tile slides the grid in again and the
+     * shelf returns on the next dock focus as it always does. One translation, no scrolling: the tiles come
+     * back exactly where they left.
+     */
+    private void setGridHiddenForBar(boolean hide) {
+        if (gridHiddenByBar == hide) return;
+        gridHiddenByBar = hide;
+        if (hide) hideHero();
+        grid.animate().cancel();
+        int offset = hide ? grid.getHeight() : 0;
+        if (animations && !reducedMotion) grid.animate().translationY(offset).setDuration(260).start();
+        else grid.setTranslationY(offset);
     }
 
     // ---- optional system stats (config.xml show_stats) --------------------------------------------

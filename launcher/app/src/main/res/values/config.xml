@@ -419,6 +419,21 @@
          pictures in wallpapers/ ("01-dusk.jpg<TAB>Dusk over the peaks", one per line). A picture without a line
          shows no name. Can also be set with "wallpaper_captions": true in a theme's config.json. -->
     <bool name="wallpaper_captions">false</bool>
+    <!-- With wallpaper_captions, show the picture's date under its name: the optional third column of its line in
+         captions.txt ("01-dusk.jpg<TAB>Dusk over the peaks<TAB>3 Oct 2025"). A line without a third column names
+         the picture and shows no date. Can also be set with "wallpaper_caption_date": true in a theme's config.json. -->
+    <bool name="wallpaper_caption_date">false</bool>
+    <!-- How long a rotating wallpaper fades into the next one, in milliseconds (0 to 2000). 0 swaps at once, as the
+         rotation always did; a fade holds two full-screen bitmaps for its duration. A theme's config.json can set
+         "wallpaper_crossfade_ms". -->
+    <integer name="wallpaper_crossfade_ms">0</integer>
+    <!-- Keycodes that move a rotating collection to the next picture while Home is in front, in a theme's config.json
+         ("wallpaper_next_keycodes": [90, 272] for fast-forward and skip-forward). Android's KeyEvent constants;
+         empty turns no key into a skip. -->
+    <integer-array name="wallpaper_next_keycodes" />
+    <!-- Keycodes that move a rotating collection back to the previous picture while Home is in front, in a theme's
+         config.json ("wallpaper_prev_keycodes": [89, 273] for rewind and skip-backward). -->
+    <integer-array name="wallpaper_prev_keycodes" />
     <!-- Rotating wallpapers grouped by the time of day, as JSON: {"morning": [file names], "evening": [...],
          "night": [...]}. While set, the rotation picks only from the group that fits now: morning from sunrise to
          noon, evening until half an hour after sunset, night the rest, with the sun at latitude and longitude (07:00
@@ -542,6 +557,15 @@
          only background_color or the wallpaper behind everything. Can also be set with "ambient_glow": false in a
          theme's config.json. -->
     <bool name="ambient_glow">true</bool>
+    <!-- How bright that glow rests, in percent (100 as before). Below 100 tones it down without losing the app's
+         colour; 0 leaves the glow's slice of screen as dark as the background. Can also be set with
+         "ambient_glow_intensity" in a theme's config.json. -->
+    <integer name="ambient_glow_intensity">100</integer>
+    <!-- While the top bar is focused, slide the whole grid - the dock band and every tile - off the bottom of the
+         screen, leaving the wallpaper between the clock and the bar. Focus back on a tile slides it in again.
+         false keeps the grid on screen whatever is focused. Can also be set with "grid_hide_on_top_bar": true in
+         a theme's config.json. -->
+    <bool name="grid_hide_on_top_bar">false</bool>
     <!-- true: when the focus moves to an app of another colour, the ambient glow takes the new colour in one frame
          instead of dimming and fading back in. Each frame of that fade repaints the whole screen, about 40 per key
          press, which a slow GPU such as the Mali-G52 cannot keep up with. Can also be set with "glow_snap" in a

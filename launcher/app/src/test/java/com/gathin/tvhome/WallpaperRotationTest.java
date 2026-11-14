@@ -3,6 +3,7 @@ package com.gathin.tvhome;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -10,10 +11,13 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 import org.junit.Test;
 
@@ -67,6 +71,17 @@ public class WallpaperRotationTest {
     }
 
     @Test
+    public void previousStepsBackAndWraps() {
+        List<File> images = Arrays.asList(new File("a.jpg"), new File("b.jpg"), new File("c.jpg"));
+        assertEquals("b.jpg", WallpaperRotation.previous(images, "c.jpg").getName());
+        assertEquals("a.jpg", WallpaperRotation.previous(images, "b.jpg").getName());
+        assertEquals("c.jpg", WallpaperRotation.previous(images, "a.jpg").getName());
+        // A previous name that is no longer in the collection starts again at the first picture.
+        assertEquals("a.jpg", WallpaperRotation.previous(images, "gone.jpg").getName());
+        assertNull(WallpaperRotation.previous(Collections.emptyList(), ""));
+    }
+
+    @Test
     public void pickUsesTheRequestedOrder() {
         List<File> images = Arrays.asList(new File("a.jpg"), new File("b.jpg"), new File("c.jpg"));
         Random random = new Random(1);
@@ -78,6 +93,62 @@ public class WallpaperRotationTest {
         }
         // Unknown order keeps the historical shuffle rather than failing or blanking.
         assertNotEquals("a.jpg", WallpaperRotation.pick(images, "a.jpg", "random", random).getName());
+    }
+
+    @Test
+    public void validOrderAcceptsExactlyTheThreeOrders() {
+        assertTrue(WallpaperRotation.validOrder(WallpaperRotation.ORDER_SEQUENTIAL));
+        assertTrue(WallpaperRotation.validOrder(WallpaperRotation.ORDER_SHUFFLE));
+        assertTrue(WallpaperRotation.validOrder(WallpaperRotation.ORDER_DAILY));
+        // Case matters; anything else is a value config.json never held.
+        assertFalse(WallpaperRotation.validOrder("Daily"));
+        assertFalse(WallpaperRotation.validOrder(""));
+        assertFalse(WallpaperRotation.validOrder("random"));
+    }
+
+    @Test
+    public void dailyOrderShufflesACopyAndRepeatsForTheSameDay() {
+        List<File> images = new ArrayList<>(Arrays.asList(new File("a.jpg"), new File("b.jpg"),
+                new File("c.jpg"), new File("d.jpg")));
+        List<String> before = names(images);
+        List<File> order = WallpaperRotation.dailyOrder(images, 42L);
+        List<File> orderAgain = WallpaperRotation.dailyOrder(images, 42L);
+        assertNotSame(images, order);                  // a new list, not the one handed in
+        assertEquals(before, names(images));          // the collection itself is left untouched
+        assertEquals(names(order), names(orderAgain)); // the same day walks in the same order
+        List<String> sortedBefore = new ArrayList<>(before);
+        List<String> sortedOrder = new ArrayList<>(names(order));
+        Collections.sort(sortedBefore);
+        Collections.sort(sortedOrder);
+        assertEquals(sortedBefore, sortedOrder);       // the same pictures, only shuffled
+        assertTrue(WallpaperRotation.dailyOrder(Collections.emptyList(), 42L).isEmpty());
+    }
+
+    @Test
+    public void dailyOrderVariesFromDayToDay() {
+        List<File> images = new ArrayList<>();
+        for (int i = 0; i < 10; i++) images.add(new File("wall-" + i + ".jpg"));
+        Set<String> orders = new HashSet<>();
+        for (long day = 0; day < 50; day++) {
+            orders.add(names(WallpaperRotation.dailyOrder(images, day)).toString());
+        }
+        assertTrue(orders.size() >= 40);
+    }
+
+    @Test
+    public void dailyPickWalksTheListLikeNext() {
+        List<File> images = Arrays.asList(new File("a.jpg"), new File("b.jpg"), new File("c.jpg"));
+        Random random = new Random(1);
+        // The day-shuffled list is walked in order, exactly like sequential; the Random is not consulted.
+        assertEquals("b.jpg", WallpaperRotation.pick(images, "a.jpg", WallpaperRotation.ORDER_DAILY, random).getName());
+        assertEquals("a.jpg", WallpaperRotation.pick(images, "c.jpg", WallpaperRotation.ORDER_DAILY, random).getName());
+    }
+
+    @Test
+    public void dailyPickIgnoresTheRandom() {
+        List<File> images = Arrays.asList(new File("a.jpg"), new File("b.jpg"), new File("c.jpg"));
+        assertEquals("c.jpg", WallpaperRotation.pick(images, "b.jpg", WallpaperRotation.ORDER_DAILY, new Random(1)).getName());
+        assertEquals("c.jpg", WallpaperRotation.pick(images, "b.jpg", WallpaperRotation.ORDER_DAILY, new Random(999)).getName());
     }
 
     @Test

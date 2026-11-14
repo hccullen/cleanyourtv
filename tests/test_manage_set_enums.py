@@ -1,7 +1,7 @@
 """tools/manage.py set refuses a value the launcher's closed-set string readers answer with a default.
 
 Four keys in the Keys table name the values they take - `glow_style` (radial or horizon), `glass_style` (glass,
-rim or halo), `wallpaper_order` (shuffle or sequential) and `clock_format` (12, 24 or system) - and the readers in
+rim or halo), `wallpaper_order` (daily, shuffle or sequential) and `clock_format` (12, 24 or system) - and the readers in
 the launcher keep those and nothing else: Config.glowStyle() is `GLOW_HORIZON.equalsIgnoreCase(value.trim()) ?
 GLOW_HORIZON : GLOW_RADIAL`, glassStyle() answers glass for anything else, WallpaperRotation.validOrder() is
 `ORDER_SEQUENTIAL.equals(order) || ORDER_SHUFFLE.equals(order)` and ClockFormat applies "12" or "24" and lets

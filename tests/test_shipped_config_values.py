@@ -19,7 +19,7 @@ theme quietly ignored. Keys read by another class (`race_calendar` in RaceCalend
 `wallpaper_moods` in WallpaperRotation.java) are not this file's business.
 
 Three keys are narrowed further, to a set of values rather than a type: `glow_style` (radial or horizon),
-`glass_style` (glass, rim or halo) and `wallpaper_order` (sequential or shuffle). `string()` keeps any
+`glass_style` (glass, rim or halo) and `wallpaper_order` (daily, sequential or shuffle). `string()` keeps any
 string, so a value outside the set is not something the checks above see; the reader then folds it to its
 fallback without a word. `themes/cinematic` and `themes/red-rain` shipped `"glow_style": "off"`, a value
 `Config.glowStyle()` answers with radial, so a theme that meant to say "no glow here" said nothing at all -
@@ -215,7 +215,7 @@ class ShippedConfigValuesTest(unittest.TestCase):
         # A constant parse that found nothing would let every value through, the way it did for "off".
         self.assertEqual(self.enums.get("glow_style"), ({"radial", "horizon"}, "trimmed"))
         self.assertEqual(self.enums.get("glass_style"), ({"glass", "rim", "halo"}, "trimmed"))
-        self.assertEqual(self.enums.get("wallpaper_order"), ({"sequential", "shuffle"}, "exact"))
+        self.assertEqual(self.enums.get("wallpaper_order"), ({"daily", "sequential", "shuffle"}, "exact"))
 
     def test_a_value_outside_the_set_is_reported(self):
         # "off" is the value the two themes shipped: a string, so the type sweep passed it and
@@ -223,7 +223,7 @@ class ShippedConfigValuesTest(unittest.TestCase):
         # case, validOrder() does not, so `Sequential` is not `sequential`.
         for key, value, listed in (("glow_style", "off", "horizon, radial"),
                                    ("glass_style", "frosted", "glass, halo, rim"),
-                                   ("wallpaper_order", "Sequential", "sequential, shuffle")):
+                                   ("wallpaper_order", "Sequential", "daily, sequential, shuffle")):
             with self.subTest(key=key, value=value):
                 reported = dict(problems({key: value}, self.kinds, self.enums))
                 self.assertIn(key, reported, f"`{key}: {value}` was let through")

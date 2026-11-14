@@ -13,9 +13,11 @@ final class WallpaperRotation {
     /** Playback orders persisted in config.json (wallpaper_order). */
     static final String ORDER_SEQUENTIAL = "sequential";
     static final String ORDER_SHUFFLE = "shuffle";
+    /** The whole collection shuffled once per date: the order is stable across restarts and changes each day. */
+    static final String ORDER_DAILY = "daily";
 
     static boolean validOrder(String order) {
-        return ORDER_SEQUENTIAL.equals(order) || ORDER_SHUFFLE.equals(order);
+        return ORDER_SEQUENTIAL.equals(order) || ORDER_SHUFFLE.equals(order) || ORDER_DAILY.equals(order);
     }
 
     static List<File> images(File directory) {
@@ -77,9 +79,37 @@ final class WallpaperRotation {
         return images.get(0);
     }
 
+    /**
+     * The picture before the named one, wrapping to the last at the start. The skip buttons and the
+     * rewind key walk the same list forward rotation walks, whatever the order is. An unknown name
+     * starts at the first picture, as {@link #next} does.
+     */
+    static File previous(List<File> images, String name) {
+        if (images.isEmpty()) return null;
+        for (int i = 0; i < images.size(); i++) {
+            if (images.get(i).getName().equals(name)) {
+                return images.get((i - 1 + images.size()) % images.size());
+            }
+        }
+        return images.get(0);
+    }
+
+    /**
+     * The collection in today's order for {@link #ORDER_DAILY}: shuffled with the date as the seed,
+     * so every player the same day walks the same order and the next day shuffles it again. The
+     * input list is left alone; the caller keeps its master copy.
+     */
+    static List<File> dailyOrder(List<File> images, long day) {
+        List<File> order = new ArrayList<>(images);
+        Collections.shuffle(order, new Random(day));
+        return order;
+    }
+
     /** Picks the next picture for {@code order}; an unknown order keeps the historical shuffle. */
     static File pick(List<File> images, String previous, String order, Random random) {
-        return ORDER_SEQUENTIAL.equals(order) ? next(images, previous) : pick(images, previous, random);
+        // The daily player feeds the day-shuffled list in here, so it walks that list as sequential.
+        return ORDER_SEQUENTIAL.equals(order) || ORDER_DAILY.equals(order)
+                ? next(images, previous) : pick(images, previous, random);
     }
 
     static boolean due(long previous, long now, long interval) {

@@ -214,10 +214,22 @@ final class Config {
     /** The dock band's opacity in percent (config.json dock_opacity, 30-100): below 100 the wallpaper shows through. */
     final int dockOpacity;
     /**
-     * Playback order for a wallpaper collection: {@code sequential} or {@code shuffle}. Missing or
-     * invalid values keep the historical shuffle so existing themes rotate exactly as before.
+     * Playback order for a wallpaper collection: {@code sequential}, {@code shuffle} or {@code daily}.
+     * Missing or invalid values keep the historical shuffle so existing themes rotate exactly as before.
      */
     final String wallpaperOrder;
+    /**
+     * Cross-fade between rotating pictures in milliseconds (config.xml / theme wallpaper_crossfade_ms,
+     * 0 to 2000). 0 swaps at once, as the rotation always did; the fade costs a second full-screen
+     * bitmap for its duration.
+     */
+    final int wallpaperCrossfadeMs;
+    /** Show each picture's date from captions.txt's third column under its name (wallpaper_caption_date). */
+    final boolean wallpaperCaptionDate;
+    /** Keycodes that flip the rotation to the next/previous picture on Home (wallpaper_next_keycodes). */
+    final int[] wallpaperNextKeycodes;
+    /** Keycodes that flip the rotation to the previous picture on Home (wallpaper_prev_keycodes). */
+    final int[] wallpaperPrevKeycodes;
     /** Whether the overlay file was present and parsed. */
     final boolean overlayApplied;
     /** Festive skin from a theme (festival, festival_until, greeting, accent_color); {@link Festival#NONE} if none. */
@@ -228,6 +240,10 @@ final class Config {
     final boolean cinematicHome;
     /** The glow in the focused app's colour behind the dock (config.xml, ambient_glow); false keeps the background plain. */
     final boolean ambientGlow;
+    /** How bright the ambient glow rests, in percent (config.xml, ambient_glow_intensity); 100 as before. */
+    final int ambientGlowIntensity;
+    /** While the top bar is focused, the whole grid slides off-screen (config.xml, grid_hide_on_top_bar). */
+    final boolean gridHideOnTopBar;
     /** The focus highlight in the focused app's colour on every tile (config.xml, app_glow), as cinematic_home does for the dock. */
     final boolean appGlow;
     /** The rows fade out under the clock instead of being cut off (config.xml, fade_rows); TopFade. */
@@ -294,12 +310,14 @@ final class Config {
                    int[] settingsKeycodes, boolean settingsKeyPanel, boolean restoreKeyServices, boolean wallpaperEnabled, File wallpaper, List<File> wallpapers,
                    int wallpaperRotationMinutes, int wallpaperDim, int dockOpacity, String wallpaperOrder, boolean overlayApplied,
                    Festival festival, int[] inputKeycodes, List<String> appKeys, String stockHomeRedirect,
-                   List<RaceWeekend.Race> raceCalendar, boolean cinematicHome, boolean ambientGlow, boolean appGlow, boolean fadeRows, int homeIdleClockMinutes,
+                   List<RaceWeekend.Race> raceCalendar, boolean cinematicHome, boolean ambientGlow, int ambientGlowIntensity,
+                   boolean gridHideOnTopBar, boolean appGlow, boolean fadeRows, int homeIdleClockMinutes,
                    boolean keyFilter, boolean dockGlass, String glowStyle, boolean wallpaperCaptions,
                    boolean handleViewInputs, boolean tileMenu, boolean dockEvenPadding, boolean dockBand, boolean cinematicDots, boolean cinematicWhiteFocus, boolean wifiStatusColor, int cinematicScrim, int cinematicArt,
                    Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean volumePausesFilter, boolean homeIgnoreChannelKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly, boolean inputsCecStateOnly,
                    int openOnStartNetworkWait, boolean openOnStartOnWake, boolean iconOnlyVpn, String clockFormat, boolean backOpensClock, boolean glowSnap,
-                   boolean settingsKeyClearTask) {
+                   boolean settingsKeyClearTask, int wallpaperCrossfadeMs, boolean wallpaperCaptionDate,
+                   int[] wallpaperNextKeycodes, int[] wallpaperPrevKeycodes) {
         this.handleViewInputs = handleViewInputs;
         this.tileMenu = tileMenu;
         this.inputKeycodes = inputKeycodes;
@@ -378,11 +396,17 @@ final class Config {
         this.wallpaperDim = wallpaperDim;
         this.dockOpacity = dockOpacity;
         this.wallpaperOrder = wallpaperOrder;
+        this.wallpaperCrossfadeMs = wallpaperCrossfadeMs;
+        this.wallpaperCaptionDate = wallpaperCaptionDate;
+        this.wallpaperNextKeycodes = wallpaperNextKeycodes.clone();
+        this.wallpaperPrevKeycodes = wallpaperPrevKeycodes.clone();
         this.overlayApplied = overlayApplied;
         this.festival = festival;
         this.raceCalendar = Collections.unmodifiableList(raceCalendar);
         this.cinematicHome = cinematicHome;
         this.ambientGlow = ambientGlow;
+        this.ambientGlowIntensity = ambientGlowIntensity;
+        this.gridHideOnTopBar = gridHideOnTopBar;
         this.appGlow = appGlow;
         this.fadeRows = fadeRows;
         this.homeIdleClockMinutes = homeIdleClockMinutes;
@@ -493,6 +517,10 @@ final class Config {
         boolean wallpaperTrueColor = res.getBoolean(R.bool.wallpaper_true_color);
         boolean focusOvershoot = res.getBoolean(R.bool.focus_overshoot);
         boolean wallpaperCaptions = res.getBoolean(R.bool.wallpaper_captions);
+        int wallpaperCrossfadeMs = res.getInteger(R.integer.wallpaper_crossfade_ms);
+        boolean wallpaperCaptionDate = res.getBoolean(R.bool.wallpaper_caption_date);
+        int[] wallpaperNextKeycodes = res.getIntArray(R.array.wallpaper_next_keycodes);
+        int[] wallpaperPrevKeycodes = res.getIntArray(R.array.wallpaper_prev_keycodes);
         boolean tileMenu = res.getBoolean(R.bool.tile_menu);
         String vpn = res.getString(R.string.vpn_app).trim();
         boolean homeSettings = res.getBoolean(R.bool.show_home_settings_shortcut);
@@ -513,6 +541,8 @@ final class Config {
         String stockHomeRedirect = res.getString(R.string.stock_home_redirect).trim();
         boolean cinematic = res.getBoolean(R.bool.cinematic_home);
         boolean ambientGlow = res.getBoolean(R.bool.ambient_glow);
+        int ambientGlowIntensity = res.getInteger(R.integer.ambient_glow_intensity);
+        boolean gridHideOnTopBar = res.getBoolean(R.bool.grid_hide_on_top_bar);
         boolean appGlow = res.getBoolean(R.bool.app_glow);
         boolean fadeRows = res.getBoolean(R.bool.fade_rows);
         int idleClockMinutes = res.getInteger(R.integer.home_idle_clock_minutes);
@@ -610,6 +640,10 @@ final class Config {
             wallpaperTrueColor = bool(json, "wallpaper_true_color", wallpaperTrueColor);
             focusOvershoot = bool(json, "focus_overshoot", focusOvershoot);
             wallpaperCaptions = bool(json, "wallpaper_captions", wallpaperCaptions);
+            wallpaperCrossfadeMs = integer(json, "wallpaper_crossfade_ms", wallpaperCrossfadeMs, 0, 2000);
+            wallpaperCaptionDate = bool(json, "wallpaper_caption_date", wallpaperCaptionDate);
+            wallpaperNextKeycodes = intArray(json, "wallpaper_next_keycodes", wallpaperNextKeycodes);
+            wallpaperPrevKeycodes = intArray(json, "wallpaper_prev_keycodes", wallpaperPrevKeycodes);
             tileMenu = bool(json, "tile_menu", tileMenu);
             vpn = string(json, "vpn_app", vpn);
             homeSettings = bool(json, "show_home_settings_shortcut", homeSettings);
@@ -630,6 +664,8 @@ final class Config {
             stockHomeRedirect = string(json, "stock_home_redirect", stockHomeRedirect);
             cinematic = bool(json, "cinematic_home", cinematic);
             ambientGlow = bool(json, "ambient_glow", ambientGlow);
+            ambientGlowIntensity = integer(json, "ambient_glow_intensity", ambientGlowIntensity, 0, 100);
+            gridHideOnTopBar = bool(json, "grid_hide_on_top_bar", gridHideOnTopBar);
             appGlow = bool(json, "app_glow", appGlow);
             fadeRows = bool(json, "fade_rows", fadeRows);
             idleClockMinutes = integer(json, "home_idle_clock_minutes", idleClockMinutes, 0, 1440);
@@ -725,14 +761,16 @@ final class Config {
                 vpn, homeSettings, showStats, gameDay, library, librarySelection, libraryOkOpens, uniformTiles, background,
                 Math.max(0, Math.min(100, skyIntensity)), settingsKeycodes, settingsKeyPanel, restoreKeyServices, wallpaperEnabled, wallpaper,
                 wallpapers, rotationMinutes, wallpaperDim, dockOpacity, wallpaperOrder, applied, festival, inputKeycodes, appKeys, stockHomeRedirect,
-                json == null ? Collections.emptyList() : raceCalendar(json), cinematic, ambientGlow, appGlow, fadeRows,
+                json == null ? Collections.emptyList() : raceCalendar(json), cinematic, ambientGlow, ambientGlowIntensity,
+                gridHideOnTopBar, appGlow, fadeRows,
                 Math.max(0, idleClockMinutes), keyFilter, dockGlass, glowStyle, wallpaperCaptions, handleViewInputs, tileMenu, dockEvenPadding,
                 dockBand, cinematicDots, cinematicWhiteFocus, wifiStatusColor, cinematicScrim, cinematicArt, wallpaperMoods, gamepadPassthrough,
                 consumeVolumeKeys, volumePausesFilter, homeIgnoreChannelKeys, powerOnHome, homeLongPressHome, wifiStatusWarnings, topBarApps, showGreeting, headerWhite, clockWallpaper,
                 Math.max(0, Math.min(90, clockWallpaperDim)), clockGlow, glassStyle, singleRow && dockRow, dockBandAll, lunar, lunarOffset,
                 dateBelowClock, vpnPill, locale, powerOnHomeAlways, inputsConnectedOnly, inputsCecStateOnly,
                 Math.max(0, Math.min(600, openOnStartNetworkWait)), openOnStartOnWake, iconOnlyVpn, clockFormat, backOpensClock, glowSnap,
-                settingsKeyClearTask);
+                settingsKeyClearTask, wallpaperCrossfadeMs, wallpaperCaptionDate,
+                wallpaperNextKeycodes, wallpaperPrevKeycodes);
     }
 
     /**
