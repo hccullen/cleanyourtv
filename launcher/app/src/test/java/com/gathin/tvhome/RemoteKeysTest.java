@@ -183,6 +183,25 @@ public class RemoteKeysTest {
         assertFalse(RemoteKeys.isActivity(null));
     }
 
+    @Test public void keyExtrasAttachOnlyToAnActivityTarget() {
+        // The Smart Home add-on's QuickActivity tells buttons apart by the codes the intent carries.
+        String quick = "io.github.maxhayim.smarthome/.QuickActivity";
+        assertTrue(RemoteKeys.attachesKeycode(quick, 7));
+        assertTrue(RemoteKeys.attachesScancode(quick, 632));
+        assertFalse(RemoteKeys.attachesKeycode(quick, 0));
+        assertFalse(RemoteKeys.attachesScancode(quick, 0));
+        // A whole package, an input, a guide or an action word cannot tell buttons apart.
+        String[] others = {"com.netflix.ninja",
+                "input:com.tcl.tvinput/.passthroughinput.TvPassThroughService/HW1",
+                "guide:com.vt.tv.tvcenter", "mute"};
+        for (String other : others) {
+            assertFalse(other, RemoteKeys.attachesKeycode(other, 632));
+            assertFalse(other, RemoteKeys.attachesScancode(other, 632));
+        }
+        assertFalse(RemoteKeys.attachesKeycode(null, 632));
+        assertFalse(RemoteKeys.attachesScancode(null, 632));
+    }
+
     /** Presses with a timer the test runs by hand, and the targets they open. */
     private static final class Remote {
         final List<Runnable> holds = new ArrayList<>();

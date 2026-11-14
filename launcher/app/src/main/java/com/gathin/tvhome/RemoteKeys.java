@@ -427,6 +427,17 @@ final class RemoteKeys {
     static final String EXTRA_KEYCODE = "com.gathin.tvhome.extra.keycode";
     static final String EXTRA_SCANCODE = "com.gathin.tvhome.extra.scancode";
 
+    /** True when this launch attaches EXTRA_KEYCODE: a press that came with a keycode, aimed at a
+     *  "package/.Activity" target. Every other kind of target cannot tell buttons apart. */
+    static boolean attachesKeycode(String pkg, int keyCode) {
+        return keyCode != 0 && isActivity(pkg);
+    }
+
+    /** The same for EXTRA_SCANCODE. */
+    static boolean attachesScancode(String pkg, int scanCode) {
+        return scanCode != 0 && isActivity(pkg);
+    }
+
     static void launch(Context ctx, String pkg) {
         launch(ctx, pkg, 0, 0);
     }
@@ -481,8 +492,8 @@ final class RemoteKeys {
         if (activity != null) {
             try {
                 Intent open = new Intent().setComponent(activity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                if (keyCode != 0) open.putExtra(EXTRA_KEYCODE, keyCode);
-                if (scanCode != 0) open.putExtra(EXTRA_SCANCODE, scanCode);
+                if (attachesKeycode(pkg, keyCode)) open.putExtra(EXTRA_KEYCODE, keyCode);
+                if (attachesScancode(pkg, scanCode)) open.putExtra(EXTRA_SCANCODE, scanCode);
                 ctx.startActivity(open);
             } catch (ActivityNotFoundException | SecurityException ignored) {
             }
