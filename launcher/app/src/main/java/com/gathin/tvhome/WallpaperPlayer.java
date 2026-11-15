@@ -44,8 +44,14 @@ final class WallpaperPlayer {
     /** config wallpaper_true_color: ARGB_8888 instead of RGB_565. */
     private final Bitmap.Config bitmapConfig;
     private final int height;
-    /** wallpaper_dim as an ARGB black, painted into each picture once instead of a full-screen shade view. */
-    private final int dimColor;
+    /** wallpaper_dim in percent, baked into each picture once at decode instead of a full-screen shade view. */
+    private final int configDim;
+    /** wallpaper_night_dim in percent: the dim that replaces wallpaper_dim while it is dark outside; 0 is off. */
+    private final int nightDim;
+    /** grid_hide_on_top_bar lifted the night dim while the grid is slid away (setNightDimSuspended). */
+    private boolean dimSuspended;
+    /** The dim the picture on screen was baked with, so a change re-bakes only when the dim really moved. */
+    private int bakedDim;
     /** The picture on screen, released once the next one has been drawn. */
     private Bitmap current;
     /** The picture fading in on {@link #fader} while a cross-fade runs; null when none does. */
@@ -84,14 +90,15 @@ final class WallpaperPlayer {
         interval = config.wallpaperRotationMinutes * 60_000L;
         bitmapConfig = config.wallpaperTrueColor ? Bitmap.Config.ARGB_8888 : Bitmap.Config.RGB_565;
         // The dim is painted into the picture (decode), so no full-screen shade layer is drawn on every frame.
-        dimColor = config.wallpaperDim > 0 ? (config.wallpaperDim * 255 / 100) << 24 : 0;
+        configDim = config.wallpaperDim;
         order = config.wallpaperOrder;
         daily = WallpaperRotation.ORDER_DAILY.equals(order);
         crossfadeMs = config.wallpaperCrossfadeMs;
+        nightDim = config.wallpaperNightDim;
         preferences = context.getSharedPreferences("wallpaper_rotation", Context.MODE_PRIVATE);
         moods = config.wallpaperMoods;
-        latitude = moods.isEmpty() ? "" : context.getString(R.string.latitude);
-        longitude = moods.isEmpty() ? "" : context.getString(R.string.longitude);
+        latitude = moods.isEmpty() && config.wallpaperNightDim <= 0 ? "" : context.getString(R.string.latitude);
+        longitude = moods.isEmpty() && config.wallpaperNightDim <= 0 ? "" : context.getString(R.string.longitude);
         // Playback state belongs to one collection. Changing the collection starts from its first
         // picture instead of resuming a filename that belonged to the previous one.
         String collection = collectionKey(files);
@@ -140,13 +147,15 @@ final class WallpaperPlayer {
         List<File> playable = playable();
         File first = WallpaperRotation.find(playable, previous);
         if (first == null) first = WallpaperRotation.pick(playable, previous, order, random);
+        int dim = dimNow();
         while (first != null) {
-            Bitmap bitmap = decode(first);
+            Bitmap bitmap = decode(first, dim);
             if (bitmap != null) {
                 show(bitmap);
                 // The picture covers the whole screen: the root's plain colour under it is overdraw.
                 root.setBackground(null);
                 displayed = first.getName();
+                bakedDim = dim;
                 showCaption(false);
                 if (!displayed.equals(previous)) {
                     preferences.edit().putString("image", displayed)
@@ -220,12 +229,30 @@ final class WallpaperPlayer {
             }
             return dayOrder;
         }
+        ensureSun();
         LocalDateTime now = LocalDateTime.now();
-        if (!now.toLocalDate().equals(sunDay)) {
-            sunDay = now.toLocalDate();
-            sun = WallpaperMood.sun(sunDay, latitude, longitude, ZoneId.systemDefault());
-        }
         return WallpaperMood.select(files, moods, WallpaperMood.timeOfDay(now.getHour() * 60 + now.getMinute(), sun[0], sun[1]));
+    }
+
+    /** Today's sunrise and sunset, worked out once a day (wallpaper_moods and wallpaper_night_dim). */
+    private void ensureSun() {
+        LocalDate today = LocalDate.now();
+        if (today.equals(sunDay)) return;
+        sunDay = today;
+        sun = WallpaperMood.sun(sunDay, latitude, longitude, ZoneId.systemDefault());
+    }
+
+    /** Whether it is dark outside for wallpaper_night_dim: an hour after sunset to an hour before sunrise. */
+    private boolean darkNow() {
+        if (nightDim <= 0) return false;
+        ensureSun();
+        LocalDateTime now = LocalDateTime.now();
+        return WallpaperRotation.darkOutside(now.getHour() * 60 + now.getMinute(), sun[0], sun[1]);
+    }
+
+    /** The dim the next decode bakes in: the theme's wallpaper_dim, or the night one while it is dark. */
+    private int dimNow() {
+        return WallpaperRotation.dimAt(configDim, nightDim, darkNow() && !dimSuspended);
     }
 
     void close() {
@@ -236,6 +263,19 @@ final class WallpaperPlayer {
 
     void update() {
         if (!active || closed || loading || files.isEmpty()) return;
+        // wallpaper_night_dim: the dark starting or ending re-bakes the picture on screen at once,
+        // cross-fading the new brightness instead of waiting for the next picture. This tick is the
+        // re-bake's; the rotation keeps its own clock and moves at its next one.
+        if (nightDim > 0 && !displayed.isEmpty()) {
+            int dim = dimNow();
+            if (dim != bakedDim) {
+                File picture = WallpaperRotation.find(files, displayed);
+                if (picture != null) {
+                    rebake(picture, dim);
+                    return;
+                }
+            }
+        }
         String previous = preferences.getString("image", "");
         // A picture outside the time of day's group (the group changed) is replaced at once, not after the interval.
         List<File> playable = playable();
@@ -250,9 +290,10 @@ final class WallpaperPlayer {
 
     /** Decodes a picture off the UI thread and puts it on screen once ready; the interval starts over from it. */
     private void load(File next) {
+        int dim = dimNow();
         loading = true;
         decoder.execute(() -> {
-            Bitmap bitmap = decode(next);
+            Bitmap bitmap = decode(next, dim);
             root.post(() -> {
                 loading = false;
                 if (closed || !active) {
@@ -267,11 +308,47 @@ final class WallpaperPlayer {
                 }
                 show(bitmap);
                 displayed = next.getName();
+                bakedDim = dim;
                 showCaption(true);
                 preferences.edit().putString("image", displayed)
                         .putLong("changed", System.currentTimeMillis()).apply();
             });
         });
+    }
+
+    /**
+     * Re-decodes the picture on screen with a new dim - wallpaper_night_dim crossing into or out of
+     * the dark, or the grid slide lifting it - and cross-fades over the old bake. The caption and the
+     * rotation's own clock are left alone: the same picture shows, only its brightness moved.
+     */
+    private void rebake(File picture, int dim) {
+        loading = true;
+        decoder.execute(() -> {
+            Bitmap bitmap = decode(picture, dim);
+            root.post(() -> {
+                loading = false;
+                if (closed || !active || bitmap == null) {
+                    if (bitmap != null) bitmap.recycle();
+                    return;
+                }
+                bakedDim = dim;
+                show(bitmap);
+            });
+        });
+    }
+
+    /**
+     * grid_hide_on_top_bar: the grid sliding away leaves the photo alone on the screen, so the night
+     * dim lifts with it (wallpaper_night_dim); the grid coming back re-dims if it is still dark.
+     */
+    void setNightDimSuspended(boolean suspended) {
+        if (nightDim <= 0 || dimSuspended == suspended) return;
+        dimSuspended = suspended;
+        if (loading || displayed.isEmpty()) return;
+        int dim = dimNow();
+        if (dim == bakedDim) return;
+        File picture = WallpaperRotation.find(files, displayed);
+        if (picture != null) rebake(picture, dim);
     }
 
     /**
@@ -415,7 +492,7 @@ final class WallpaperPlayer {
         if (covered != null && covered != settled) image.postDelayed(covered::recycle, 500);
     }
 
-    private Bitmap decode(File file) {
+    private Bitmap decode(File file, int dim) {
         try {
             BitmapFactory.Options options = new BitmapFactory.Options();
             options.inJustDecodeBounds = true;
@@ -433,10 +510,10 @@ final class WallpaperPlayer {
                 options.inTargetDensity = scale[1];
             }
             options.inPreferredConfig = bitmapConfig;
-            options.inMutable = dimColor != 0;
+            options.inMutable = dim > 0;
             Bitmap decoded = BitmapFactory.decodeFile(file.getPath(), options);
             if (decoded == null) return null;
-            if (dimColor != 0) new Canvas(decoded).drawColor(dimColor);
+            if (dim > 0) new Canvas(decoded).drawColor((dim * 255 / 100) << 24);
             // One copy in GPU memory instead of a software bitmap plus its texture; the decode stays off the UI
             // thread for rotations, and Home's return no longer uploads 4-8 MB to the GPU.
             Bitmap gpu = decoded.copy(Bitmap.Config.HARDWARE, false);

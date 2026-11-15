@@ -105,6 +105,24 @@ final class WallpaperRotation {
         return order;
     }
 
+    /**
+     * Whether it is dark outside (wallpaper_night_dim): from an hour after sunset to an hour before
+     * sunrise, the twilight either side of the sun's times. The hour is about how long civil twilight
+     * lasts at mid-latitude Europe; without the sun's times (no latitude and longitude in config.xml)
+     * the defaults are sunrise 07:00 and sunset 18:30.
+     */
+    static boolean darkOutside(int minutesOfDay, int sunrise, int sunset) {
+        return minutesOfDay >= sunset + 60 || minutesOfDay < sunrise - 60;
+    }
+
+    /**
+     * The dim a picture decodes with (wallpaper_dim and wallpaper_night_dim): the night dim replaces
+     * the plain one while it is dark, never stacks on it.
+     */
+    static int dimAt(int dim, int nightDim, boolean dark) {
+        return dark && nightDim > 0 ? Math.max(dim, nightDim) : dim;
+    }
+
     /** Picks the next picture for {@code order}; an unknown order keeps the historical shuffle. */
     static File pick(List<File> images, String previous, String order, Random random) {
         // The daily player feeds the day-shuffled list in here, so it walks that list as sequential.

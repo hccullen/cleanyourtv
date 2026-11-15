@@ -82,6 +82,28 @@ public class WallpaperRotationTest {
     }
 
     @Test
+    public void darkOutsideStartsAnHourAfterSunsetAndEndsAnHourBeforeSunrise() {
+        // 07:00 sunrise, 18:30 sunset: dark from 19:30 to 06:00, bright between.
+        assertTrue(WallpaperRotation.darkOutside(19 * 60 + 30, 7 * 60, 18 * 60 + 30));
+        assertTrue(WallpaperRotation.darkOutside(23 * 60, 7 * 60, 18 * 60 + 30));
+        assertTrue(WallpaperRotation.darkOutside(5 * 60, 7 * 60, 18 * 60 + 30));
+        assertFalse(WallpaperRotation.darkOutside(19 * 60 + 29, 7 * 60, 18 * 60 + 30));
+        assertFalse(WallpaperRotation.darkOutside(6 * 60, 7 * 60, 18 * 60 + 30));
+        assertFalse(WallpaperRotation.darkOutside(12 * 60, 7 * 60, 18 * 60 + 30));
+        // A darkening that would start past the next sunrise keeps its shape, not a crash.
+        assertTrue(WallpaperRotation.darkOutside(23 * 60, 23 * 60 - 90, 23 * 60 - 180));
+    }
+
+    @Test
+    public void theNightDimReplacesThePlainOneOnlyInTheDark() {
+        assertEquals(12, WallpaperRotation.dimAt(12, 40, false));
+        assertEquals(40, WallpaperRotation.dimAt(12, 40, true));
+        // The night dim never stacks on the plain one, and 0 keeps the plain dim.
+        assertEquals(40, WallpaperRotation.dimAt(40, 40, true));
+        assertEquals(12, WallpaperRotation.dimAt(12, 0, true));
+    }
+
+    @Test
     public void pickUsesTheRequestedOrder() {
         List<File> images = Arrays.asList(new File("a.jpg"), new File("b.jpg"), new File("c.jpg"));
         Random random = new Random(1);

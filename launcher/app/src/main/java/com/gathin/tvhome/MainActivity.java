@@ -2316,6 +2316,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (gridHiddenByBar == hide) return;
         gridHiddenByBar = hide;
         if (hide) hideHero();
+        // The photo alone on the screen shows at its daytime look: the night dim lifts with the grid
+        // (wallpaper_night_dim) and returns when the grid does, if it is still dark.
+        wallpaperPlayer.setNightDimSuspended(hide);
         grid.animate().cancel();
         int offset = hide ? grid.getHeight() : 0;
         if (animations && !reducedMotion) grid.animate().translationY(offset).setDuration(260).start();
