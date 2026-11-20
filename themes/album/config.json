@@ -1,0 +1,16 @@
+{
+  "columns": 5,
+  "ambient_glow_intensity": 80,
+  "grid_hide_on_top_bar": true,
+  "wallpaper": true,
+  "wallpaper_rotation_minutes": 20,
+  "wallpaper_order": "daily",
+  "wallpaper_true_color": true,
+  "wallpaper_dim": 12,
+  "wallpaper_night_dim": 40,
+  "wallpaper_captions": true,
+  "wallpaper_caption_date": true,
+  "wallpaper_crossfade_ms": 1200,
+  "wallpaper_next_keycodes": [90, 272],
+  "wallpaper_prev_keycodes": [89, 273]
+}

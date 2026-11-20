@@ -1,0 +1,7 @@
+# album captions: one line per picture, when you add yours.
+# The line is the file name, a TAB, the name under the clock - and, on
+# wallpaper_caption_date, a second TAB and the date:
+#   01-hakone.jpg<TAB>Tonosawa, Hakone<TAB>5 Oct 2025
+# with real TAB characters, not spaces. Lines like these, that start with #,
+# the launcher skips, so replace this file with your own lines once your
+# pictures are in this folder.
