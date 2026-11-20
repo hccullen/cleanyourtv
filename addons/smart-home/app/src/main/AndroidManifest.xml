@@ -48,5 +48,16 @@
             android:authorities="${applicationId}.config"
             android:exported="true"
             android:permission="android.permission.WRITE_SECURE_SETTINGS" />
+
+        <!-- The Home panel's now-playing row, read by the launcher when config.xml's panel_packages names this
+             app. One query path ("lines"), read-only. The authority is what the launcher's meta-data lookup
+             resolves, and the launcher verifies the provider belongs to the package it named. -->
+        <provider
+            android:name=".PanelProvider"
+            android:authorities="${applicationId}.panel"
+            android:exported="true" />
+
+        <!-- The authority the launcher resolves for this app's panel rows (PanelPill). -->
+        <meta-data android:name="com.gathin.tvhome.panel" android:value="${applicationId}.panel" />
     </application>
 </manifest>

@@ -31,10 +31,65 @@ final class HaClient {
 
     private final String base;
     private final String token;
+    private final int timeoutMs;
 
     HaClient(String base, String token) {
+        this(base, token, TIMEOUT_MS);
+    }
+
+    /** A shorter timeout for the panel's fetch-on-query: a slow server must not hold the reader. */
+    HaClient(String base, String token, int timeoutMs) {
         this.base = base;
         this.token = token;
+        this.timeoutMs = timeoutMs;
+    }
+
+    HaClient.ReplyBytes getBytes(String path) {
+        HttpURLConnection c = null;
+        try {
+            // An absolute URL (some integrations serve entity_picture as one) passes through as is.
+            String spec = path.startsWith("http://") || path.startsWith("https://") ? path : base + path;
+            c = (HttpURLConnection) new URL(spec).openConnection();
+            c.setConnectTimeout(timeoutMs);
+            c.setReadTimeout(timeoutMs);
+            c.setInstanceFollowRedirects(false);
+            c.setRequestProperty("Authorization", "Bearer " + token);
+            int code = c.getResponseCode();
+            InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
+            byte[] body = in == null ? new byte[0] : readBytes(in);
+            return new HaClient.ReplyBytes(code, body);
+        } catch (IOException | RuntimeException e) {
+            return new HaClient.ReplyBytes(0, new byte[0]);
+        } finally {
+            if (c != null) c.disconnect();
+        }
+    }
+
+    private static byte[] readBytes(InputStream in) throws IOException {
+        try (InputStream s = in) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[16384];
+            for (int n; (n = s.read(buf)) > 0; ) {
+                out.write(buf, 0, n);
+                if (out.size() > MAX_BODY) break;
+            }
+            return out.toByteArray();
+        }
+    }
+
+    /** Status code (0 when the server couldn't be reached) and the raw body: images, JSON, anything. */
+    static final class ReplyBytes {
+        final int code;
+        final byte[] body;
+
+        ReplyBytes(int code, byte[] body) {
+            this.code = code;
+            this.body = body;
+        }
+
+        boolean ok() {
+            return code >= 200 && code < 300;
+        }
     }
 
     Reply get(String path) {
@@ -50,8 +105,8 @@ final class HaClient {
         try {
             c = (HttpURLConnection) new URL(base + path).openConnection();
             c.setRequestMethod(method);
-            c.setConnectTimeout(TIMEOUT_MS);
-            c.setReadTimeout(TIMEOUT_MS);
+            c.setConnectTimeout(timeoutMs);
+            c.setReadTimeout(timeoutMs);
             c.setInstanceFollowRedirects(false);
             c.setRequestProperty("Authorization", "Bearer " + token);
             c.setRequestProperty("Accept", "application/json");

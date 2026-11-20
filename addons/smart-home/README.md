@@ -106,6 +106,31 @@ press needs no server at all: `"quick_4": "https://www.youtube.com/watch?v=2wYtJ
 the TV's YouTube app (a `youtube.com` or `vnd.youtube:` link is aimed at the YouTube package directly, so no
 browser or chooser answers first; any other link opens by resolution).
 
+## The Home panel: what is playing, under the clock
+
+With the launcher's Home panel on (`home_panel_pill`, with this package named in `panel_packages` — see
+[`docs/specs/panel.md`](../../docs/specs/panel.md)), the app serves one row: what a Home Assistant media player
+is playing right now, with its cover art. The launcher asks when Home comes back and once a minute; the app
+answers from a 20-second cache and otherwise reads Home Assistant once, with short timeouts — no service, no
+poller, nothing runs while Home is off screen. Nothing playing: no row, and the launcher's panel is not there.
+
+Two keys in a pushed file choose the player:
+
+```json
+{"preferred_media_player": "media_player.beam", "fallback": true}
+```
+
+| Key | Meaning |
+|---|---|
+| `preferred_media_player` | The entity id the panel shows whenever it is playing. Leave it out to let any player win. |
+| `fallback` | `true` (the default): any playing player, first by entity id. `false`: the preferred one or nothing. A list: those entities in order, first one playing wins. |
+
+Every combination is valid — with neither key set, the panel shows any player in the house that is playing.
+A row reads the title as the big line, `Artist · Speaker` under it (the speaker dimmed; a source without a
+title shows the artist as the big line), and the cover art if the player has one. The launcher keeps the
+art small and re-decodes it only when it changes. A broken or slow Home Assistant shows the last row it
+managed, or no row — never an error on your home screen.
+
 ## Permissions
 
 | Permission | Why |

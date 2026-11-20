@@ -34,6 +34,10 @@ final class Config {
     final String quick;
     /** Entity ids for the number keys, by digit 0-9 (the pushed file's "quick_<digit>" keys); "" where none is set. */
     final String[] quicks;
+    /** The media player the Home panel prefers (the pushed file's "preferred_media_player"), or "" when unset. */
+    final String panelPreferred;
+    /** The Home panel's fallback in its stored form: "true", "false", or a comma-separated id list (NowPlaying.parseFallback). */
+    final String panelFallback;
 
     Config(String url, String token, List<String> glance) {
         this(url, token, glance, null, null, false);
@@ -45,11 +49,16 @@ final class Config {
 
     Config(String url, String token, List<String> glance, List<String> show, List<String> hide, boolean hideUnavailable,
            String quick) {
-        this(url, token, glance, show, hide, hideUnavailable, quick, null);
+        this(url, token, glance, show, hide, hideUnavailable, quick, null, "", "");
     }
 
     Config(String url, String token, List<String> glance, List<String> show, List<String> hide, boolean hideUnavailable,
            String quick, String[] quicks) {
+        this(url, token, glance, show, hide, hideUnavailable, quick, quicks, "", "");
+    }
+
+    Config(String url, String token, List<String> glance, List<String> show, List<String> hide, boolean hideUnavailable,
+           String quick, String[] quicks, String panelPreferred, String panelFallback) {
         this.url = url;
         this.token = token;
         this.glance = Collections.unmodifiableList(glance == null ? Collections.emptyList() : glance);
@@ -58,6 +67,8 @@ final class Config {
         this.hideUnavailable = hideUnavailable;
         this.quick = quick == null ? "" : quick.trim();
         this.quicks = quicks == null ? new String[10] : quicks;
+        this.panelPreferred = panelPreferred == null ? "" : panelPreferred.trim();
+        this.panelFallback = panelFallback == null ? "" : panelFallback.trim();
     }
 
     boolean complete() {
@@ -74,7 +85,8 @@ final class Config {
         for (int d = 0; d < quicks.length; d++) quicks[d] = p.getString("quick_" + d, "").trim();
         return new Config(p.getString("url", ""), p.getString("token", ""), readGlance(p.getString("glance", "")),
                 readGlance(p.getString("show", "")), readGlance(p.getString("hide", "")),
-                p.getBoolean("hide_unavailable", false), p.getString("quick", ""), quicks);
+                p.getBoolean("hide_unavailable", false), p.getString("quick", ""), quicks,
+                p.getString("panel_preferred", ""), p.getString("panel_fallback", ""));
     }
 
     private static void saveList(Context c, String key, List<String> ids) {
@@ -121,6 +133,12 @@ final class Config {
                     prefs(c).edit().putString("quick_" + d, o.optString("quick_" + d).trim()).apply();
                 }
             }
+            if (o.has("preferred_media_player")) {
+                prefs(c).edit().putString("panel_preferred", o.optString("preferred_media_player").trim()).apply();
+            }
+            if (o.has("fallback")) {
+                prefs(c).edit().putString("panel_fallback", fallbackRaw(o.opt("fallback"))).apply();
+            }
             return true;
         } catch (Exception e) {
             return false;
@@ -142,6 +160,21 @@ final class Config {
             out.addAll(readGlance((String) raw));
         }
         return out;
+    }
+
+    /**
+     * The pushed config's "fallback" in its stored form: a JSON boolean becomes "true" or "false",
+     * an array of entity ids becomes a comma-separated list, a string passes through trimmed.
+     * Null or anything else becomes "", which {@link NowPlaying#parseFallback} reads as the default.
+     */
+    static String fallbackRaw(Object raw) {
+        if (raw instanceof Boolean) return (Boolean) raw ? "true" : "false";
+        if (raw instanceof JSONArray) {
+            List<String> ids = parseGlance(raw);
+            return joinGlance(ids);
+        }
+        if (raw instanceof String) return ((String) raw).trim();
+        return "";
     }
 
     private static List<String> readGlance(String joined) {
