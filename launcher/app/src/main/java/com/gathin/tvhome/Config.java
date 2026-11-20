@@ -156,6 +156,11 @@ final class Config {
     final boolean showStats;
     /** game_day: the package of an add-on that publishes each team's next game (GameDay); empty = off. */
     final String gameDay;
+
+    /** Home panel pill (home_panel_pill): the now-playing line an add-on serves, off by default. */
+    final boolean homePanelPill;
+    /** The packages whose providers serve the panel's rows (panel_packages); empty = no panel. */
+    final List<String> panelPackages;
     /** App library pill after the last Home row (config.xml app_library). */
     final boolean appLibrary;
     /** OK directly toggles Home membership in the library (app_library_selection). */
@@ -319,7 +324,7 @@ final class Config {
                    Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean volumePausesFilter, boolean homeIgnoreChannelKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly, boolean inputsCecStateOnly,
                    int openOnStartNetworkWait, boolean openOnStartOnWake, boolean iconOnlyVpn, String clockFormat, boolean backOpensClock, boolean glowSnap,
                    boolean settingsKeyClearTask, int wallpaperCrossfadeMs, boolean wallpaperCaptionDate,
-                   int[] wallpaperNextKeycodes, int[] wallpaperPrevKeycodes) {
+                   int[] wallpaperNextKeycodes, int[] wallpaperPrevKeycodes, boolean homePanelPill, List<String> panelPackages) {
         this.handleViewInputs = handleViewInputs;
         this.tileMenu = tileMenu;
         this.inputKeycodes = inputKeycodes;
@@ -403,6 +408,8 @@ final class Config {
         this.wallpaperCaptionDate = wallpaperCaptionDate;
         this.wallpaperNextKeycodes = wallpaperNextKeycodes.clone();
         this.wallpaperPrevKeycodes = wallpaperPrevKeycodes.clone();
+        this.homePanelPill = homePanelPill;
+        this.panelPackages = Collections.unmodifiableList(panelPackages);
         this.overlayApplied = overlayApplied;
         this.festival = festival;
         this.raceCalendar = Collections.unmodifiableList(raceCalendar);
@@ -524,6 +531,12 @@ final class Config {
         boolean wallpaperCaptionDate = res.getBoolean(R.bool.wallpaper_caption_date);
         int[] wallpaperNextKeycodes = res.getIntArray(R.array.wallpaper_next_keycodes);
         int[] wallpaperPrevKeycodes = res.getIntArray(R.array.wallpaper_prev_keycodes);
+        boolean homePanelPill = res.getBoolean(R.bool.home_panel_pill);
+        List<String> panelPackages = new ArrayList<>();
+        for (String pkg : res.getStringArray(R.array.panel_packages)) {
+            String name = pkg.trim();
+            if (!name.isEmpty() && !panelPackages.contains(name)) panelPackages.add(name);
+        }
         boolean tileMenu = res.getBoolean(R.bool.tile_menu);
         String vpn = res.getString(R.string.vpn_app).trim();
         boolean homeSettings = res.getBoolean(R.bool.show_home_settings_shortcut);
@@ -647,6 +660,8 @@ final class Config {
             wallpaperCaptionDate = bool(json, "wallpaper_caption_date", wallpaperCaptionDate);
             wallpaperNextKeycodes = intArray(json, "wallpaper_next_keycodes", wallpaperNextKeycodes);
             wallpaperPrevKeycodes = intArray(json, "wallpaper_prev_keycodes", wallpaperPrevKeycodes);
+            homePanelPill = bool(json, "home_panel_pill", homePanelPill);
+            panelPackages = stringList(json, "panel_packages", panelPackages);
             tileMenu = bool(json, "tile_menu", tileMenu);
             vpn = string(json, "vpn_app", vpn);
             homeSettings = bool(json, "show_home_settings_shortcut", homeSettings);
@@ -774,7 +789,7 @@ final class Config {
                 dateBelowClock, vpnPill, locale, powerOnHomeAlways, inputsConnectedOnly, inputsCecStateOnly,
                 Math.max(0, Math.min(600, openOnStartNetworkWait)), openOnStartOnWake, iconOnlyVpn, clockFormat, backOpensClock, glowSnap,
                 settingsKeyClearTask, wallpaperCrossfadeMs, wallpaperCaptionDate,
-                wallpaperNextKeycodes, wallpaperPrevKeycodes);
+                wallpaperNextKeycodes, wallpaperPrevKeycodes, homePanelPill, panelPackages);
     }
 
     /**

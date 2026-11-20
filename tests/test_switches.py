@@ -56,8 +56,9 @@ SCREENSHOT_WANTED = {
     "wallpaper_moods", "wallpaper_order", "wallpaper_true_color", "wifi_label_width",
     "wifi_status_color",
     # Local fork: keys from this TV's personal patches (cross-fade, caption dates, skip keys,
-    # the grid slide, the glow dimmer). They carry no screenshot by design.
-    "ambient_glow_intensity", "grid_hide_on_top_bar", "wallpaper_caption_date",
+    # the grid slide, the glow dimmer, the night dim, the HA panel). They carry no screenshot by design.
+    "ambient_glow_intensity", "grid_hide_on_top_bar", "home_panel_pill", "panel_packages",
+    "wallpaper_caption_date",
     "wallpaper_crossfade_ms", "wallpaper_next_keycodes", "wallpaper_prev_keycodes",
     "wallpaper_night_dim",
 }

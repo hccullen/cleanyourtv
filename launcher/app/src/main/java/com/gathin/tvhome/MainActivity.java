@@ -210,6 +210,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView raceKicker, raceHeadline, raceSessions;
     /** game_day: each team's next game from an add-on, rotating in the race panel; null when the key is off. */
     private GameDay gameDay;
+    private PanelPill panelPill;
     private View raceBar;
     private LinearLayout racePager;
     private long rotationStart;
@@ -452,6 +453,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         public void run() {
             updateGreeting();
             updatePanel();
+            if (panelPill != null) panelPill.read();
             // The pill follows the network callbacks and each return to Home; only the festive light follows the
             // signal level, so only it needs this minute's binder calls (about 7 ms on the UI thread).
             if (festive) updateWifiLabel();
@@ -600,6 +602,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         raceBar = findViewById(R.id.raceBar);
         racePager = findViewById(R.id.racePager);
         gameDay = GameDay.create(this, cfg.gameDay, handler, this::updatePanel);
+        panelPill = PanelPill.create(this, cfg, root, racePanel, handler);
         // The rotation runs on the clock that never jumps: setting the TV's time must not stall or stretch a turn.
         rotationStart = SystemClock.elapsedRealtime();
         showStats = cfg.showStats;
@@ -1075,6 +1078,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (openInputsIfAsked(intent)) return;
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;
         if (gameDay != null && !stopped) gameDay.read();
+        if (panelPill != null && !stopped) panelPill.read();
         grid.scrollToPosition(0);
         lastFocused = 0;
         lastFocusedKey = adapter.getItemCount() > 0 ? adapter.keyAt(0) : null;
@@ -1153,6 +1157,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (showStats) startStats();
         if (gameDay != null) gameDay.start();
+        if (panelPill != null) panelPill.start();
         sky.update();
         wallpaperPlayer.start();
         handler.postDelayed(minuteTick, MINUTE_MS);
@@ -1338,6 +1343,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         startPending = null;   // leaving Home before the network came back: the boot's app stays closed
         stopStats();
         if (gameDay != null) gameDay.stop();
+        if (panelPill != null) panelPill.stop();
         handler.removeCallbacks(turnTick);
         if (lamp != null) lamp.stop();
         cancelPendingFocusScroll();
@@ -1399,6 +1405,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // grid_hide_on_top_bar: focus on the top bar slides the whole grid - the dock band and every
         // tile - off the screen, so the wallpaper runs under the clock and the bar alone.
         if (gridHideOnTopBar) setGridHiddenForBar(newF != null && newF.getParent() == topBar);
+        // The now-playing panel steps aside with it: the photo is the screen while the bar is focused.
+        if (panelPill != null) panelPill.setTopBarHidden(newF != null && newF.getParent() == topBar);
     };
 
     @Override
@@ -1409,6 +1417,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         RemoteKeys.release(this);
         cancelHoldOk();
         if (gameDay != null) gameDay.shutdown();
+        if (panelPill != null) panelPill.shutdown();
         unregisterReceiver(packageReceiver);
         if (openOnStartOnWake) unregisterReceiver(wakeReceiver);
         wallpaperPlayer.close();

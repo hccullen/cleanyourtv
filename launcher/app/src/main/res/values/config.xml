@@ -523,6 +523,19 @@
          online. A theme can set "game_day". -->
     <string name="game_day" translatable="false"></string>
 
+    <!-- The Home panel pill: the now-playing line an add-on serves, in the corner under the wallpaper
+         caption (one row per package, at most three). The add-on fetches on query and caches; the
+         launcher reads when Home comes back and once a minute with the clock, and stays offline.
+         Off by default, and no package named: the corner is empty. A theme can set "home_panel_pill". -->
+    <bool name="home_panel_pill">true</bool>
+
+    <!-- The packages that serve the panel's rows, in order. Each one publishes its provider's authority
+         in its com.gathin.tvhome.panel meta-data and must own the provider it names; an uninstalled or
+         broken package costs its row, never the home screen. A theme can set "panel_packages". -->
+    <string-array name="panel_packages" translatable="false">
+        <item>io.github.maxhayim.smarthome</item>
+    </string-array>
+
     <!-- Time-of-day backdrop behind everything: a dark gradient that follows the clock, with a warm
          horizon glow around sunrise and sunset. 0 keeps the plain background (the default); 1 to 100
          sets its opacity. Around 60 reads clearly without hiding a wallpaper. Can also be set with
