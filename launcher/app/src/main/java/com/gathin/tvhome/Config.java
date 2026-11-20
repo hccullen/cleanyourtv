@@ -173,6 +173,10 @@ final class Config {
     final int backgroundColor;
     /** Time-of-day backdrop, 0 to 100 (config.xml, sky_intensity); 0 keeps the plain background. */
     final int skyIntensity;
+    /** Where the TV is, in decimal degrees, so the sky's and the wallpaper's sun follow the real one
+     *  (config.xml latitude and longitude, or a theme's); empty: a fixed temperate day, sunset around 19:00. */
+    final String latitude;
+    final String longitude;
     /** Remote keycodes that open Settings through HomeKeyService (config.xml, settings_key_keycodes). */
     final int[] settingsKeycodes;
     /** Extra keycodes that open the input switcher in InputKeyService (config.xml input_key_keycodes). */
@@ -324,7 +328,8 @@ final class Config {
                    Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean volumePausesFilter, boolean homeIgnoreChannelKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly, boolean inputsCecStateOnly,
                    int openOnStartNetworkWait, boolean openOnStartOnWake, boolean iconOnlyVpn, String clockFormat, boolean backOpensClock, boolean glowSnap,
                    boolean settingsKeyClearTask, int wallpaperCrossfadeMs, boolean wallpaperCaptionDate,
-                   int[] wallpaperNextKeycodes, int[] wallpaperPrevKeycodes, boolean homePanelPill, List<String> panelPackages) {
+                   int[] wallpaperNextKeycodes, int[] wallpaperPrevKeycodes, boolean homePanelPill, List<String> panelPackages,
+                   String latitude, String longitude) {
         this.handleViewInputs = handleViewInputs;
         this.tileMenu = tileMenu;
         this.inputKeycodes = inputKeycodes;
@@ -410,6 +415,8 @@ final class Config {
         this.wallpaperPrevKeycodes = wallpaperPrevKeycodes.clone();
         this.homePanelPill = homePanelPill;
         this.panelPackages = Collections.unmodifiableList(panelPackages);
+        this.latitude = latitude;
+        this.longitude = longitude;
         this.overlayApplied = overlayApplied;
         this.festival = festival;
         this.raceCalendar = Collections.unmodifiableList(raceCalendar);
@@ -548,6 +555,8 @@ final class Config {
         boolean uniformTiles = res.getBoolean(R.bool.uniform_tiles);
         int background = 0xFF000000;
         int skyIntensity = res.getInteger(R.integer.sky_intensity);
+        String latitude = coordinate(res.getString(R.string.latitude), -90, 90);
+        String longitude = coordinate(res.getString(R.string.longitude), -180, 180);
         int[] settingsKeycodes = res.getIntArray(R.array.settings_key_keycodes);
         boolean settingsKeyPanel = res.getBoolean(R.bool.settings_key_panel);
         boolean restoreKeyServices = res.getBoolean(R.bool.restore_key_services);
@@ -673,6 +682,10 @@ final class Config {
             uniformTiles = bool(json, "uniform_tiles", uniformTiles);
             background = color(json, "background_color", background);
             skyIntensity = integer(json, "sky_intensity", skyIntensity, 0, 100);
+            String themed = coordinate(string(json, "latitude", ""), -90, 90);
+            if (!themed.isEmpty()) latitude = themed;
+            themed = coordinate(string(json, "longitude", ""), -180, 180);
+            if (!themed.isEmpty()) longitude = themed;
             settingsKeycodes = intArray(json, "settings_key_keycodes", settingsKeycodes);
             settingsKeyPanel = bool(json, "settings_key_panel", settingsKeyPanel);
             restoreKeyServices = bool(json, "restore_key_services", restoreKeyServices);
@@ -789,7 +802,7 @@ final class Config {
                 dateBelowClock, vpnPill, locale, powerOnHomeAlways, inputsConnectedOnly, inputsCecStateOnly,
                 Math.max(0, Math.min(600, openOnStartNetworkWait)), openOnStartOnWake, iconOnlyVpn, clockFormat, backOpensClock, glowSnap,
                 settingsKeyClearTask, wallpaperCrossfadeMs, wallpaperCaptionDate,
-                wallpaperNextKeycodes, wallpaperPrevKeycodes, homePanelPill, panelPackages);
+                wallpaperNextKeycodes, wallpaperPrevKeycodes, homePanelPill, panelPackages, latitude, longitude);
     }
 
     /**
@@ -932,6 +945,19 @@ final class Config {
     private static String string(JSONObject o, String key, String fallback) {
         Object v = o.opt(key);
         return v instanceof String ? ((String) v).trim() : fallback;
+    }
+
+    /** A decimal-degree coordinate (config.xml or theme latitude and longitude): the trimmed string when it
+     *  parses inside its bounds, empty when it does not, so the sun falls back to the built-in place. */
+    static String coordinate(String raw, double min, double max) {
+        String value = raw == null ? "" : raw.trim();
+        if (value.isEmpty()) return "";
+        try {
+            double parsed = Double.parseDouble(value);
+            return parsed >= min && parsed <= max ? value : "";
+        } catch (NumberFormatException e) {
+            return "";
+        }
     }
 
     /** The theme's festival: {@code festival}, or {@code seasonal_skin} when that is empty or missing. */

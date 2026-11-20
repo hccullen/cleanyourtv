@@ -10,7 +10,8 @@ import java.util.Set;
 
 /**
  * wallpaper_moods: which group of a rotating wallpaper collection fits the time of day. Morning from sunrise to noon,
- * evening until half an hour after sunset, night the rest. The sun is the one at config.xml's latitude and longitude,
+ * evening until half an hour after sunset, night the rest. The sun is the one at the latitude and longitude
+ * keys (config.xml or a theme),
  * worked out offline by {@link Sun} as the sky does, or 07:00 and 18:30 without a place. A group that is missing, or
  * has none of the collection's pictures, falls back to the whole collection.
  */
@@ -33,7 +34,7 @@ final class WallpaperMood {
         return NIGHT;
     }
 
-    /** That day's {sunrise, sunset} at config.xml's latitude and longitude; the defaults when either is unusable. */
+    /** That day's {sunrise, sunset} at the latitude and longitude keys (config.xml or a theme); the defaults when either is unusable. */
     static int[] sun(LocalDate day, String latitude, String longitude, ZoneId zone) {
         int[] times = null;
         try {

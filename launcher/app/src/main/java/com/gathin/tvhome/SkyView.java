@@ -41,6 +41,10 @@ public class SkyView extends View {
 
     /** Opacity of the whole backdrop, 0 to 255, from sky_intensity. */
     private int intensity;
+    /** Where the TV is, in decimal degrees (config.xml latitude and longitude, or a theme's): the day the
+     *  glow follows. Empty: the fixed reference day, wherever the TV is. */
+    private String latitude = "";
+    private String longitude = "";
     private int lastMinute = -1;
     private Bitmap texture;
     private BitmapDrawable drawable;
@@ -55,6 +59,13 @@ public class SkyView extends View {
         setAlpha(intensity / 100f);
         setVisibility(intensity == 0 ? GONE : VISIBLE);
         if (intensity > 0) render(true);
+    }
+
+    /** The place the sun is computed for (config.xml latitude and longitude, or a theme's), so a theme can
+     *  move the sky's day without a rebuild; call before {@link #setIntensity(int)}, which draws at once. */
+    public void setLocation(String lat, String lon) {
+        latitude = lat == null ? "" : lat.trim();
+        longitude = lon == null ? "" : lon.trim();
     }
 
     /** Picks up a new time of day; cheap and safe to call every minute. */
@@ -72,11 +83,9 @@ public class SkyView extends View {
     /** Today's sunrise and sunset at the configured place, or null without one (fixed reference day). */
     @Nullable
     private int[] sunTimes() {
-        String lat = getContext().getString(R.string.latitude);
-        String lon = getContext().getString(R.string.longitude);
-        if (lat.isEmpty() || lon.isEmpty()) return null;
+        if (latitude.isEmpty() || longitude.isEmpty()) return null;
         try {
-            return Sun.riseAndSet(LocalDate.now(), Double.parseDouble(lat), Double.parseDouble(lon),
+            return Sun.riseAndSet(LocalDate.now(), Double.parseDouble(latitude), Double.parseDouble(longitude),
                     ZoneId.systemDefault());
         } catch (NumberFormatException e) {
             return null;

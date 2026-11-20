@@ -61,6 +61,9 @@ SCREENSHOT_WANTED = {
     "wallpaper_caption_date",
     "wallpaper_crossfade_ms", "wallpaper_next_keycodes", "wallpaper_prev_keycodes",
     "wallpaper_night_dim",
+    # The place the sun follows (latitude and longitude): a screenshot of the sky at the right
+    # time of day is on the TV checklist, not here yet.
+    "latitude", "longitude",
 }
 
 

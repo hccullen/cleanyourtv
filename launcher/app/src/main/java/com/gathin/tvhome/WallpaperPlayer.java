@@ -78,7 +78,7 @@ final class WallpaperPlayer {
     private final int crossfadeMs;
     /** The second view a cross-fade draws over {@link #image}; null when crossfadeMs is 0. */
     private final ImageView fader;
-    /** config.xml latitude and longitude for the sun's times, and today's {sunrise, sunset} once worked out. */
+    /** config.xml or theme latitude and longitude for the sun's times, and today's {sunrise, sunset} once worked out. */
     private final String latitude, longitude;
     private LocalDate sunDay;
     private int[] sun;
@@ -97,8 +97,8 @@ final class WallpaperPlayer {
         nightDim = config.wallpaperNightDim;
         preferences = context.getSharedPreferences("wallpaper_rotation", Context.MODE_PRIVATE);
         moods = config.wallpaperMoods;
-        latitude = moods.isEmpty() && config.wallpaperNightDim <= 0 ? "" : context.getString(R.string.latitude);
-        longitude = moods.isEmpty() && config.wallpaperNightDim <= 0 ? "" : context.getString(R.string.longitude);
+        latitude = moods.isEmpty() && config.wallpaperNightDim <= 0 ? "" : config.latitude;
+        longitude = moods.isEmpty() && config.wallpaperNightDim <= 0 ? "" : config.longitude;
         // Playback state belongs to one collection. Changing the collection starts from its first
         // picture instead of resuming a filename that belonged to the previous one.
         String collection = collectionKey(files);

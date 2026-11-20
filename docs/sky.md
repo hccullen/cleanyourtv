@@ -42,6 +42,12 @@ negative) in `launcher/app/src/main/res/values/config.xml`, before building the 
 <string name="longitude" translatable="false">25.28</string>
 ```
 
+or, without a rebuild, in the theme's `config.json`, where a theme's value wins over the build's:
+
+```json
+{ "sky_intensity": 60, "latitude": "54.69", "longitude": "25.28" }
+```
+
 The sky then stretches the same anchors onto that place's real sunrise and sunset: NOAA's solar
 position equations in `Sun.java`, run on the TV from today's date and the system time zone. No
 network, no location permission, nothing to query, and a tenth of a degree only moves sunset by
@@ -51,9 +57,11 @@ Two days keep that fixed day instead: one with no sunrise or sunset at all (pola
 midnight sun), and one whose sunset the arithmetic puts past midnight, as in Reykjavik in June.
 Nothing is guessed from the time zone: it only decides which clock the minutes are counted on.
 
-**A theme cannot set this.** `sky_intensity` comes from a theme's `config.json`, but the place is a
-launcher build setting — `SkyView` reads those two string resources and `Config` never looks for them
-in a theme. A theme that wants the right sun says so in its own README, with the two lines above.
+**A theme can move the sun.** `sky_intensity` comes from a theme's `config.json`, and so do the two
+coordinates: `Config` reads them the same way and hands them to the sky, the wallpaper's night dim
+and its time-of-day groups. A value outside its bounds (`-90` to `90`, `-180` to `180`) or not a
+number falls back to the build's pair, so a mistyped theme says nothing rather than putting the
+sunset in the wrong hemisphere.
 
 ## Cost
 

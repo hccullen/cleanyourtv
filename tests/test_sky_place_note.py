@@ -1,13 +1,13 @@
 """docs/sky.md has to say where the sky's sunrise and sunset come from.
 
-The page described the glow as following the sun, and named only `sky_intensity`, which a theme can set.
-The place the sun is computed for lives in two string resources in `config.xml` instead, and nothing in
-the repo mentioned them outside that file's own comment, so a theme author reading the page had no way to
-know the glow peaks at a fixed 19:00 rather than at their own sunset. These tests pin the section that
-says so to the code and the resource it describes: the two times against `Sky.java`'s reference constants,
-the two resources against `config.xml`, and "a theme cannot set this" against `Config.java` never reading
-the key and the Keys table never listing it. The page is reachable now too: `themes/README.md`'s backdrop
-section, where `sky_intensity` is explained, links it.
+The page described the glow as following the sun, and named only `sky_intensity`, which a theme can
+set. The place the sun is computed for lived in two string resources in `config.xml` instead, and a
+theme author reading the page had no way to know the glow peaks at a fixed 19:00 rather than at
+their own sunset. These tests pin the section that says so to the code and the resource it describes:
+the two times against `Sky.java`'s reference constants, the two resources against `config.xml`, and
+- since the place became a theme key - "A theme can move the sun" against `Config.java` reading
+both keys and the Keys table listing them. The page is reachable now too: `themes/README.md`'s
+backdrop section, where `sky_intensity` is explained, links it.
 """
 import re
 import unittest
@@ -113,21 +113,23 @@ class SkyPlaceSection(unittest.TestCase):
         self.assertIn(times["REF_SUNSET"], self.section,
                       f"the page should give the reference sunset, {times['REF_SUNSET']}")
 
-    def test_skyview_is_what_reads_them(self):
+    def test_config_reads_them_and_hands_the_place_to_the_sky(self):
         view = SKY_VIEW_JAVA.read_text(encoding="utf-8")
+        config = CONFIG_JAVA.read_text(encoding="utf-8")
         for name in ("latitude", "longitude"):
-            self.assertIn(f"R.string.{name}", view,
-                          f"SkyView no longer reads R.string.{name}: the page points at the wrong knob")
+            self.assertIn(f"R.string.{name}", config,
+                          f"Config no longer reads R.string.{name}: the page points at the wrong knob")
+        self.assertIn("setLocation", view, "the sky no longer takes the place from Config")
 
-    def test_it_says_a_theme_cannot_set_the_place(self):
-        self.assertIn("theme", self.section.lower())
+    def test_it_says_a_theme_can_set_the_place(self):
+        self.assertIn("A theme can move the sun", self.section,
+                      "the page has to say who can set the place")
         table = keys_table(THEMES_DOC.read_text(encoding="utf-8"))
-        self.assertNotIn("latitude", table, "latitude is a theme key now: the page has to say so")
-        self.assertNotIn("longitude", table, "longitude is a theme key now: the page has to say so")
         config_java = CONFIG_JAVA.read_text(encoding="utf-8")
         for name in ("latitude", "longitude"):
-            self.assertNotIn(f'"{name}"', config_java,
-                             f"Config.java reads a {name} key now: a theme can set the place after all")
+            self.assertIn(name, table, f"{name} is not a theme key any more: the page has to say so")
+            self.assertIn(f'"{name}"', config_java,
+                          f"Config.java no longer reads a {name} key, so a theme cannot set the place")
 
     def test_it_names_the_days_that_fall_back(self):
         for needle in ("polar night", "midnight sun"):

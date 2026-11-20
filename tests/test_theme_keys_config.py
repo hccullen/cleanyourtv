@@ -23,10 +23,9 @@ sibling had one, on a table whose own line says a theme can point the Settings b
 says nothing about the scan code that a remote which sends none needs. A test below reads the three
 integer-array keys, so dropping the form again fails here instead of leaving a key unlisted.
 
-`latitude` and `longitude` are the two exceptions, with their reason in EXEMPT: they are config.xml
-lines a build sets, docs/sky.md documents them, and tests/test_sky_place_note.py requires the Keys
-table to keep naming neither (a theme cannot move the sun). A test here keeps that exemption honest by
-checking both are still read from config.xml by SkyView.java.
+`latitude` and `longitude` used to be the two exceptions, held in EXEMPT while they were config.xml
+lines only a build could set; they are theme keys now, with rows in the table like any other, and
+tests/test_sky_place_note.py pins the page that says a theme can move the sun.
 
 Run from the repository root: python3 -m unittest discover -s tests -v
 """
@@ -58,13 +57,6 @@ READ = re.compile(r"R\.(?:bool|string|integer|array|color)\.([a-z][a-z0-9_]*)")
 FROM_THEME = re.compile(r"\(\s*json,\s*\"([a-z][a-z0-9_]*)\"")
 FALLBACK_ITEM = re.compile(r"<item>([^<]+)</item>")
 QUERIES_PACKAGE = re.compile(r'<package\s+android:name="([^"]+)"')
-
-# The keys read from config.xml on purpose that the table must not list, each with the page that
-# documents it instead.
-EXEMPT = {
-    "latitude": "docs/sky.md: the sky's place, a build setting no theme can move",
-    "longitude": "docs/sky.md: the sky's place, a build setting no theme can move",
-}
 
 
 def keys_section(body):
@@ -119,10 +111,10 @@ def read_from_config(config, java_sources):
 
 
 def missing_rows(table_text, config_text, java_sources):
-    """The config.xml keys the launcher reads that no row of the Keys table names, EXEMPT aside."""
+    """The config.xml keys the launcher reads that no row of the Keys table names."""
     read = read_from_config(config_keys(config_text), java_sources)
     rows = table_keys(table_text)
-    return sorted(name for name in read if name not in rows and name not in EXEMPT)
+    return sorted(name for name in read if name not in rows)
 
 
 def row_for(table_text, key):
@@ -194,8 +186,8 @@ class KeysTableCoversConfigXmlTest(unittest.TestCase):
         for name in missing:
             with self.subTest(key=name):
                 self.fail(f"the launcher reads `{name}` from config.xml and the Keys table has no row "
-                          f"for it: add one (docs/workflows/launcher-switch.md) or, if it is not a key a "
-                          f"reader sets, add it to EXEMPT with the page that documents it instead")
+                          f"for it: add one (docs/workflows/launcher-switch.md), or, if it is not a key "
+                          f"a reader sets, a row that says `config.xml` only")
 
     def test_settings_fallback_components_has_its_row(self):
         row = row_for(self.text, "settings_fallback_components")
@@ -247,18 +239,22 @@ class KeysTableCoversConfigXmlTest(unittest.TestCase):
                               f"`{package}` is a settings fallback but not in the manifest's <queries>: "
                               f"package visibility hides it, so the fallback can never match")
 
-    def test_the_exemption_is_still_right(self):
-        # latitude and longitude stay out of the table (tests/test_sky_place_note.py requires it), so
-        # they may only stay out while they are what that page describes: config.xml lines SkyView reads.
-        config = config_keys(self.config)
+    def test_the_sky_place_is_a_theme_key(self):
+        # The exemption these two keys carried while only a build could set them is gone: each needs
+        # its row, Config has to read it out of a theme, and the sky takes the place from Config
+        # rather than the resources (tests/test_sky_place_note.py pins the page that says so).
+        config_java = CONFIG_JAVA.read_text(encoding="utf-8")
         sky = SKY_VIEW.read_text(encoding="utf-8")
-        for name in EXEMPT:
+        for name in ("latitude", "longitude"):
             with self.subTest(key=name):
-                self.assertIn(name, config, f"`{name}` is gone from config.xml: drop its EXEMPT entry")
-                self.assertIn(f"R.string.{name}", sky, f"SkyView.java no longer reads `{name}`: is the "
-                                                      f"docs/sky.md page still right?")
-                self.assertNotIn(name, table_keys(self.text),
-                                 f"`{name}` is in the Keys table now: drop its EXEMPT entry")
+                self.assertTrue(row_for(self.text, name), f"the Keys table has no {name} row")
+                self.assertIn(f'"{name}"', config_java,
+                              f"Config.java no longer reads `{name}` out of a theme's config.json")
+                self.assertIn(f"R.string.{name}", config_java,
+                              f"Config.java no longer reads the `{name}` resource")
+                self.assertNotIn(f"R.string.{name}", sky,
+                                 f"SkyView reads the `{name}` resource again instead of the location "
+                                 f"Config hands it")
 
 
 class CheckerTest(unittest.TestCase):
@@ -283,26 +279,30 @@ class CheckerTest(unittest.TestCase):
 
     def test_a_key_without_a_row_is_reported(self):
         table = self.table("| `dock_row` | bool | the dock as a row |",
-                           "| `columns` | 1 to 8 | tiles per row |")
+                           "| `columns` | 1 to 8 | tiles per row |",
+                           "| `latitude` | string | the sky's place |")
         self.assertEqual(missing_rows(table, self.CONFIG, [self.JAVA]),
                          ["settings_fallback_components"])
 
     def test_a_key_with_a_row_is_quiet(self):
         table = self.table("| `dock_row` | bool | the dock as a row |",
                            "| `columns` | 1 to 8 | tiles per row |",
+                           "| `latitude` | string | the sky's place |",
                            "| `settings_fallback_components` | list, `config.xml` only | vendor screens |")
         self.assertEqual(missing_rows(table, self.CONFIG, [self.JAVA]), [])
 
-    def test_an_exempt_key_is_not_required(self):
+    def test_the_place_is_required_like_any_other_key(self):
+        # The stand-in reads R.string.latitude, so a table without its row owes it one: the exemption
+        # that used to skip it went away when latitude became a theme key.
         table = self.table("| `dock_row` | bool | the dock as a row |",
                            "| `columns` | 1 to 8 | tiles per row |",
                            "| `settings_fallback_components` | list, `config.xml` only | vendor screens |")
-        self.assertIn("latitude", EXEMPT)
-        self.assertEqual(missing_rows(table, self.CONFIG, [self.JAVA]), [])
+        self.assertEqual(missing_rows(table, self.CONFIG, [self.JAVA]), ["latitude"])
 
     def test_a_key_nothing_reads_is_not_required(self):
         # config.xml carries keys for the next release too; only what the Java side reads is owed a row.
         table = self.table("| `dock_row` | bool | the dock as a row |",
+                           "| `latitude` | string | the sky's place |",
                            "| `settings_fallback_components` | list, `config.xml` only | vendor screens |")
         self.assertEqual(missing_rows(table, self.CONFIG, [self.JAVA]), ["columns"])
 
@@ -318,7 +318,7 @@ class CheckerTest(unittest.TestCase):
         body = "## Wallpapers\n\n| `dock_row` | bool | not this table |\n"
         self.assertEqual(table_keys(body), {})
         self.assertEqual(missing_rows(body, self.CONFIG, [self.JAVA]),
-                         ["columns", "dock_row", "settings_fallback_components"])
+                         ["columns", "dock_row", "latitude", "settings_fallback_components"])
 
     def test_the_section_stops_at_the_next_heading(self):
         body = "## Keys\n\n" + self.HEADER + "| `dock_row` | bool | here |\n\n## Wallpapers\n\n" \
