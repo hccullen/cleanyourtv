@@ -126,7 +126,7 @@ class SonySettingsKeyNoteTest(unittest.TestCase):
                       '|| parts[2].trim().isEmpty()) continue;', remote)
         self.assertIn("ComponentName activity = isActivity(pkg) "
                       "? ComponentName.unflattenFromString(pkg) : null;", remote)
-        self.assertIn("ctx.startActivity(new Intent().setComponent(activity)", remote)
+        self.assertIn("Intent open = new Intent().setComponent(activity)", remote)
 
     def test_a_theme_can_carry_the_app_keys_entry(self):
         # "...or in a theme's app_keys": Config.read() asks the overlay for this list by name.

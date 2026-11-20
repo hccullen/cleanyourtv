@@ -29,8 +29,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import manage  # noqa: E402
 
-# The two keys the Keys table gives the `list of keycodes` cell, and the sentence both rows now carry.
-KEYCODE_KEYS = {"settings_key_keycodes", "input_key_keycodes"}
+# The keys the Keys table gives the `list of keycodes` cell, and the sentence every such row carries.
+KEYCODE_KEYS = {"settings_key_keycodes", "input_key_keycodes", "wallpaper_next_keycodes",
+                "wallpaper_prev_keycodes"}
 
 
 class KeycodeListTest(unittest.TestCase):
